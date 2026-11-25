@@ -5,6 +5,7 @@ on:
     paths:
       - 'data/sources.json'
       - 'scripts/collect-rss.mjs'
+      - 'scripts/test-basin-feed.mjs'
       - '.github/workflows/collect-rss.yml'
   schedule:
     - cron: '*/30 * * * *'
