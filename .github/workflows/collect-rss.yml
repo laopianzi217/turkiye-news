@@ -27,6 +27,9 @@ jobs:
           node-version: 22
       - name: Collect PHA lifestyle news
         run: node scripts/collect-rss.mjs
+      - name: Validate Basin RSS fields without publishing
+        if: github.event_name == 'push'
+        run: node scripts/test-basin-feed.mjs
       - name: Commit collected PHA news
         id: commit
         run: |
