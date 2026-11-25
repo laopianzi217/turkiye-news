@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  deployments: write
 concurrency:
   group: rss-collection-main
   cancel-in-progress: false
@@ -21,8 +22,10 @@ jobs:
       - name: Collect approved RSS metadata
         run: node scripts/collect-rss.mjs
       - name: Commit new RSS metadata
+        id: commit
         run: |
           if git diff --quiet -- src/data/news.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No RSS changes to commit."
             exit 0
           fi
@@ -31,3 +34,21 @@ jobs:
           git add src/data/news.json
           git commit -m "Update approved RSS news metadata"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Install dependencies
+        if: steps.commit.outputs.changed == 'true'
+        run: npm install
+      - name: Check dependency security
+        if: steps.commit.outputs.changed == 'true'
+        run: npm audit --audit-level=high
+      - name: Build static site
+        if: steps.commit.outputs.changed == 'true'
+        run: npm run build
+      - name: Deploy to Cloudflare Pages
+        if: steps.commit.outputs.changed == 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=turkiye-yasam --branch=main
+          gitHubToken: \${{ secrets.GITHUB_TOKEN }}
