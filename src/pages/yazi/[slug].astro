@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import categories from '../../data/categories.json';
+import categories from '../../../data/categories.json';
 import articles from '../../data/articles.json';
 export function getStaticPaths(){return articles.map((article)=>({params:{slug:article.slug},props:{article}}));}
 const {article}=Astro.props; const category=categories.categories.find((c)=>c.id===article.category);
