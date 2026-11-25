@@ -151,7 +151,7 @@ for (const source of enabled) {
       if (!entry.contentHtml && !entry.summary) continue;
       const digest = createHash('sha256').update(source.id + ':' + entry.guid).digest('hex').slice(0, 20);
       const category = categoryFor(entry.tags + ' ' + entry.title + ' ' + entry.summary);
-      const organization = entry.organization || '';
+      const organization = entry.organization && !/^(press|pha|admin|editor|haber)$/i.test(entry.organization) ? entry.organization : '';
       const sourceName = source.name;
       collected.push({
         id: source.id + ':' + digest,
