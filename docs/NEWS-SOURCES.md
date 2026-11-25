@@ -26,7 +26,7 @@
 - CNN Türk
 - 土耳其外交部及其他政府部门的官方公告渠道
 
-接入前必须逐一验证官方入口、Feed/API 可用性、更新频率、使用条款、版权声明和技术稳定性。不要依赖未经确认的第三方 RSS 聚合地址。
+接入前必须逐一验证官方入口、Feed/API 可用性、更新频率、使用条款、版权声明和技术稳定性。不要依赖未经确认的第三方 RSS 聚合地址。当前核查结果见 [SOURCE-VERIFICATION.md](SOURCE-VERIFICATION.md)；初步内容字段与文件存储结构见 [CONTENT-MODEL.md](CONTENT-MODEL.md)。当前没有来源获准进入生产采集。
 
 ## 3. 来源验证清单
 
