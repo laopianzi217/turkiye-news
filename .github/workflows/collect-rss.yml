@@ -1,5 +1,11 @@
-name: Collect approved RSS metadata
+name: Collect PHA lifestyle news
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/sources.json'
+      - 'scripts/collect-rss.mjs'
+      - '.github/workflows/collect-rss.yml'
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
@@ -19,9 +25,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Collect approved RSS metadata
+      - name: Collect PHA lifestyle news
         run: node scripts/collect-rss.mjs
-      - name: Commit new RSS metadata
+      - name: Commit collected PHA news
         id: commit
         run: |
           if git diff --quiet -- src/data/news.json; then
@@ -32,7 +38,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/data/news.json
-          git commit -m "Update approved RSS news metadata"
+          git commit -m "Update collected PHA news"
           git push
           echo "changed=true" >> "$GITHUB_OUTPUT"
       - name: Install dependencies
