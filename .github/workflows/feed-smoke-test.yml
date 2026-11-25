@@ -68,6 +68,7 @@ jobs:
               "ktb.gov.tr",
               "saglik.gov.tr",
               "aa.com.tr",
+              "press.org.tr",
           )
 
           def allowed_host(host):
