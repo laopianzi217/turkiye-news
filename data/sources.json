@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "poll_interval_minutes": 30,
+  "sources": [
+    {
+      "id": "trt-haber",
+      "name": "TRT Haber",
+      "type": "media",
+      "homepage": "https://www.trthaber.com/",
+      "source_directory_url": "https://www.trthaber.com/sitene_ekle.html",
+      "feed_url": "https://www.trthaber.com/manset_articles.rss",
+      "language": "tr",
+      "enabled": false,
+      "permission_status": "pending",
+      "allowed_fields": [],
+      "notes": "Official RSS directory confirmed. Website terms restrict reuse of site content; obtain written clarification/permission before collection or publication."
+    },
+    {
+      "id": "haberturk",
+      "name": "Habertürk",
+      "type": "media",
+      "homepage": "https://www.haberturk.com/",
+      "source_directory_url": "https://www.haberturk.com/rss/anasayfa",
+      "feed_url": "https://www.haberturk.com/rss/manset.xml",
+      "language": "tr",
+      "enabled": false,
+      "permission_status": "pending",
+      "allowed_fields": [],
+      "notes": "Official RSS directory confirmed. Terms restrict automated bulk collection/data mining and reuse without written permission."
+    },
+    {
+      "id": "mfa-turkiye",
+      "name": "T.C. Dışişleri Bakanlığı",
+      "type": "government",
+      "homepage": "https://www.mfa.gov.tr/",
+      "source_directory_url": "https://www.mfa.gov.tr/rss.tr.mfa",
+      "feed_url": null,
+      "language": "tr",
+      "enabled": false,
+      "permission_status": "pending",
+      "allowed_fields": [],
+      "notes": "Official RSS landing page confirmed. A stable direct feed URL and reuse conditions still need verification."
+    }
+  ]
+}
