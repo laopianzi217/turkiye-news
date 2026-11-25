@@ -90,7 +90,7 @@
       "source_directory_url": "https://www.press.org.tr/ucretsiz-haber-api",
       "feed_url": "https://www.press.org.tr/ajans/rss.xml",
       "language": "tr",
-      "enabled": false,
+      "enabled": true,
       "permission_status": "republishing_permitted_by_published_terms",
       "allowed_fields": [
         "title",
@@ -104,7 +104,7 @@
         "cities"
       ],
       "attribution_required": true,
-      "notes": "Published terms explicitly permit free publication on websites and apps, including commercial sites; headlines may be edited and text shortened without changing meaning. Attribute the originating institution or PHA (e.g. '(PHA)'). Images are stated to be supplied by institutions for publication. Enable only after the RSS endpoint and item structure pass a live technical test."
+      "notes": "Published terms permit free website/app republication with attribution. Live RSS endpoint and item structure passed the technical smoke test. Automatic import is limited to recent, non-sensitive lifestyle stories; GUID is used only for deduplication, never as an article URL."
     }
   ]
 }
