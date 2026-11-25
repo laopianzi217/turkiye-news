@@ -114,7 +114,7 @@
       "source_directory_url": "https://basinbultenleri.com/ozellikler/yayincilar",
       "feed_url": "https://basinbultenleri.com/feed",
       "language": "tr",
-      "enabled": false,
+      "enabled": true,
       "permission_status": "republishing_permitted_by_publisher_terms",
       "allowed_fields": [
         "title",
@@ -126,7 +126,7 @@
         "category"
       ],
       "attribution_required": true,
-      "notes": "Publisher page states publishers may use official company bulletins free of charge, republish them as-is with source attribution, and use press images shared in bulletins. General public RSS endpoint is listed. Disabled until live feed structure and attribution fields pass technical testing."
+      "notes": "Publisher page states publishers may use official company bulletins free of charge, republish them as-is with source attribution, and use press images shared in bulletins. Feed field coverage passed a 14-item dry-run. Automatic import remains limited to recent, non-sensitive lifestyle stories; attribution and original article links are retained where provided."
     }
   ]
 }
