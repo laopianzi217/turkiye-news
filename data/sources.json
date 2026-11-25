@@ -13,7 +13,7 @@
       "enabled": false,
       "permission_status": "pending",
       "allowed_fields": [],
-      "notes": "Official RSS directory confirmed. Website terms restrict reuse of site content; obtain written clarification/permission before collection or publication."
+      "notes": "Official RSS directory confirmed. Website terms restrict reuse; written permission is required before collection or publication."
     },
     {
       "id": "haberturk",
@@ -26,7 +26,7 @@
       "enabled": false,
       "permission_status": "pending",
       "allowed_fields": [],
-      "notes": "Official RSS directory confirmed. Terms restrict automated bulk collection/data mining and reuse without written permission."
+      "notes": "Official RSS directory confirmed. Terms restrict automated bulk collection and reuse without written permission."
     },
     {
       "id": "mfa-turkiye",
@@ -39,7 +39,48 @@
       "enabled": false,
       "permission_status": "pending",
       "allowed_fields": [],
-      "notes": "Official RSS landing page confirmed. A stable direct feed URL and reuse conditions still need verification."
+      "notes": "Official RSS landing page confirmed; direct feed endpoints and republication conditions require confirmation."
+    },
+    {
+      "id": "ktb-turkiye",
+      "name": "T.C. Kültür ve Turizm Bakanlığı",
+      "type": "government",
+      "homepage": "https://www.ktb.gov.tr/",
+      "source_directory_url": "https://www.ktb.gov.tr/TR-98488/sitemizde-yer-alan-rss-linkleri.html",
+      "feed_url": null,
+      "language": "tr",
+      "enabled": false,
+      "permission_status": "restricted_pending_written_permission",
+      "allowed_fields": [],
+      "notes": "Official RSS directory exists, but site terms restrict copying, publishing and translation without permission. Do not ingest until written permission is obtained."
+    },
+    {
+      "id": "saglik-open-data",
+      "name": "T.C. Sağlık Bakanlığı Açık Veri",
+      "type": "open_data",
+      "homepage": "https://acikveri.saglik.gov.tr/",
+      "source_directory_url": "https://acikveri.saglik.gov.tr/",
+      "license_url": "https://acikveri.saglik.gov.tr/app/doc/TermOfUse.pdf",
+      "feed_url": null,
+      "language": "tr",
+      "enabled": false,
+      "permission_status": "dataset_level_license_review_required",
+      "license": "Attribution License 1.0",
+      "allowed_fields": [],
+      "notes": "License applies only to datasets explicitly published under the platform license, not general ministry news, images or third-party material. Review each dataset and attribution requirements before use; not a news feed."
+    },
+    {
+      "id": "aa",
+      "name": "Anadolu Ajansı",
+      "type": "media",
+      "homepage": "https://www.aa.com.tr/",
+      "source_directory_url": "https://www.aa.com.tr/tr/p/yasal-uyari",
+      "feed_url": null,
+      "language": "tr",
+      "enabled": false,
+      "permission_status": "subscription_contract_required",
+      "allowed_fields": [],
+      "notes": "Excluded from free-source assumptions. Reassess only after a subscription contract and cost are explicitly approved."
     }
   ]
 }
