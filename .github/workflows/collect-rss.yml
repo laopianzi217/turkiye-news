@@ -1,0 +1,33 @@
+name: Collect approved RSS metadata
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: rss-collection-main
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Collect approved RSS metadata
+        run: node scripts/collect-rss.mjs
+      - name: Commit new RSS metadata
+        run: |
+          if git diff --quiet -- src/data/news.json; then
+            echo "No RSS changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/news.json
+          git commit -m "Update approved RSS news metadata"
+          git push
