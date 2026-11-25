@@ -182,6 +182,8 @@ jobs:
 
           if not entries:
               stop("XML 可解析，但没有找到 RSS item / Atom entry。")
-          if title_count != len(entries) or link_count != len(entries):
-              stop("部分条目缺少标题或链接；需要人工检查 Feed 结构。")
+          if title_count != len(entries) or id_count != len(entries):
+              stop("部分条目缺少标题或唯一 ID/GUID；需要人工检查 Feed 结构。")
+          if link_count == 0:
+              print("提示：此 Feed 的条目没有独立文章链接；PHA 官方说明新闻稿正文直接包含在 Feed 中，GUID 用作去重标识。")
           PY
