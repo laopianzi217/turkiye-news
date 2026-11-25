@@ -18,8 +18,9 @@ const raw = (block, names) => {
 };
 const plain = value => value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/\s+/g, ' ').trim();
 const attr = (tag, name) => {
-  const m = tag.match(new RegExp("\\b" + name + "=(?:\\"([^\\"]+)\\"|'([^']+)')", 'i'));
-  return m ? (m[1] || m[2] || '') : '';
+  const doubleQuoted = tag.match(new RegExp("\\b" + name + '="([^"]+)"', 'i'));
+  const singleQuoted = tag.match(new RegExp("\\b" + name + "='([^']+)'", 'i'));
+  return doubleQuoted?.[1] || singleQuoted?.[1] || '';
 };
 const count = { total: items.length, title: 0, guid: 0, link: 0, summary: 0, content: 0, published: 0, organization: 0, category: 0, image: 0 };
 for (const block of items) {
