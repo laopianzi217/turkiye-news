@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import categories from '../data/categories.json';
+import categories from '../../data/categories.json';
 import articles from '../data/articles.json';
 const featured=articles[0]; const latest=articles.slice(1);
 const categoryName=(id)=>categories.categories.find((c)=>c.id===id)?.name ?? 'Yaşam';
