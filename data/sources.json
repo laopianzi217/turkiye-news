@@ -105,6 +105,28 @@
       ],
       "attribution_required": true,
       "notes": "Published terms permit free website/app republication with attribution. Live RSS endpoint and item structure passed the technical smoke test. Automatic import is limited to recent, non-sensitive lifestyle stories; GUID is used only for deduplication, never as an article URL."
+    },
+    {
+      "id": "basin-bultenleri",
+      "name": "Basin Bültenleri",
+      "type": "press_release_platform",
+      "homepage": "https://basinbultenleri.com/",
+      "source_directory_url": "https://basinbultenleri.com/ozellikler/yayincilar",
+      "feed_url": "https://basinbultenleri.com/feed",
+      "language": "tr",
+      "enabled": false,
+      "permission_status": "republishing_permitted_by_publisher_terms",
+      "allowed_fields": [
+        "title",
+        "summary",
+        "content_html",
+        "image",
+        "date_published",
+        "organization",
+        "category"
+      ],
+      "attribution_required": true,
+      "notes": "Publisher page states publishers may use official company bulletins free of charge, republish them as-is with source attribution, and use press images shared in bulletins. General public RSS endpoint is listed. Disabled until live feed structure and attribution fields pass technical testing."
     }
   ]
 }
