@@ -38,7 +38,7 @@ function plainText(value = '') {
 }
 
 function attribute(tag, name) {
-  const match = tag.match(new RegExp('\\\\b' + name + '=(?:"([^"]+)"|\\'([^\\']+)\\')', 'i'));
+  const match = tag.match(new RegExp(`\\b${name}=(?:"([^"]+)"|'([^']+)')`, 'i'));
   return match ? decodeXml(match[1] || match[2] || '').trim() : '';
 }
 
