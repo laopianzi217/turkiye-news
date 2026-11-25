@@ -22,10 +22,27 @@ const attr = (tag, name) => {
   const singleQuoted = tag.match(new RegExp("\\b" + name + "='([^']+)'", 'i'));
   return doubleQuoted?.[1] || singleQuoted?.[1] || '';
 };
-const count = { total: items.length, title: 0, guid: 0, link: 0, summary: 0, content: 0, published: 0, organization: 0, category: 0, image: 0 };
+const count = { total: items.length, title: 0, guid: 0, link: 0, summary: 0, content: 0, published: 0, organization: 0, category: 0, image: 0, within30Days: 0, tooOld: 0, future: 0, blocked: 0, eligible: 0 };
+const blocked = /seçim|siyaset|siyasi|parti|meclis|bakan|cumhurbaşkanı|savaş|terör|terörist|cinayet|öldürüldü|ölü bulundu|saldırı|patlama|gözaltı|tutuklandı|mahkeme|dava|kaza|yaralı|hayatını kaybetti|deprem|sel felaketi|yangın|uyuşturucu|silah|şiddet|tecavüz|istismar/i;
+const now = Date.now();
+const maxAge = 30 * 24 * 60 * 60 * 1000;
 for (const block of items) {
-  if (raw(block, ['title'])) count.title++;
-  if (raw(block, ['guid', 'id'])) count.guid++;
+  const title = plain(raw(block, ['title']));
+  const guid = plain(raw(block, ['guid', 'id']));
+  const summary = plain(raw(block, ['description', 'summary']));
+  const publishedRaw = plain(raw(block, ['pubDate', 'published', 'updated', 'dc:date']));
+  if (title) count.title++;
+  if (guid) count.guid++;
+  if (publishedRaw) {
+    const date = Date.parse(publishedRaw);
+    if (Number.isFinite(date)) {
+      if (date > now + 24 * 60 * 60 * 1000) count.future++;
+      else if (now - date > maxAge) count.tooOld++;
+      else count.within30Days++;
+    }
+  }
+  if (blocked.test(title + ' ' + summary)) count.blocked++;
+  if (title && guid && (summary || raw(block, ['content:encoded', 'content'])) && publishedRaw && Date.parse(publishedRaw) <= now + 24 * 60 * 60 * 1000 && now - Date.parse(publishedRaw) <= maxAge && !blocked.test(title + ' ' + summary)) count.eligible++;
   const linkTag = block.match(/<link\b[^>]*>([\s\S]*?)<\/link\s*>/i)?.[0] || '';
   if (plain(linkTag.replace(/^<link\b[^>]*>|<\/link\s*>$/gi, '')) || attr(linkTag.match(/^<link\b[^>]*>/i)?.[0] || '', 'href')) count.link++;
   if (raw(block, ['description', 'summary'])) count.summary++;
