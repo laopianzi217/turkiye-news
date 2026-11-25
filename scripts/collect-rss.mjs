@@ -17,24 +17,24 @@ const BLOCKED = /seçim|siyaset|siyasi|parti|meclis|bakan|cumhurbaşkanı|savaş
 
 function decodeXml(value = '') {
   return value
-    .replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g, '$1')
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'")
-    .replace(/&#(\\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([\\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
 }
 
 function rawTag(xml, names) {
   for (const name of names) {
-    const safe = name.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\$&');
+    const safe = name;
     const match = xml.match(new RegExp('<' + safe + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + safe + '\\s*>', 'i'));
-    if (match) return match[1].replace(/^\\s*<!\\[CDATA\\[/, '').replace(/\\]\\]>\\s*$/, '').trim();
+    if (match) return match[1].replace(/^\s*<!\[CDATA\[/, '').replace(/\]\]>\s*$/, '').trim();
   }
   return '';
 }
 
 function plainText(value = '') {
-  return decodeXml(value.replace(/<[^>]*>/g, ' ')).replace(/\\s+/g, ' ').trim();
+  return decodeXml(value.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 
 function attribute(tag, name) {
@@ -51,8 +51,8 @@ function cleanUrl(value) {
 }
 
 function imageFrom(block) {
-  const enclosure = block.match(/<enclosure\\b[^>]*>/i)?.[0];
-  const media = block.match(/<(?:media:content|media:thumbnail)\\b[^>]*>/i)?.[0];
+  const enclosure = block.match(/<enclosure\b[^>]*>/i)?.[0];
+  const media = block.match(/<(?:media:content|media:thumbnail)\b[^>]*>/i)?.[0];
   const candidate = enclosure || media || '';
   const type = attribute(candidate, 'type');
   const medium = attribute(candidate, 'medium');
@@ -62,40 +62,40 @@ function imageFrom(block) {
 }
 
 function linkFrom(block) {
-  const linkTag = block.match(/<link\\b[^>]*>([\\s\\S]*?)<\\/link\\s*>/i)?.[0];
-  const linkText = linkTag ? plainText(linkTag.replace(/^<link\\b[^>]*>|<\\/link\\s*>$/gi, '')) : '';
-  const href = linkTag ? attribute(linkTag.match(/^<link\\b[^>]*>/i)?.[0] || '', 'href') : '';
-  const guidTag = block.match(/<guid\\b[^>]*>([\\s\\S]*?)<\\/guid\\s*>/i)?.[0];
+  const linkTag = block.match(/<link\b[^>]*>([\s\S]*?)<\/link\s*>/i)?.[0];
+  const linkText = linkTag ? plainText(linkTag.replace(/^<link\b[^>]*>|<\/link\s*>$/gi, '')) : '';
+  const href = linkTag ? attribute(linkTag.match(/^<link\b[^>]*>/i)?.[0] || '', 'href') : '';
+  const guidTag = block.match(/<guid\b[^>]*>([\s\S]*?)<\/guid\s*>/i)?.[0];
   const guidPermalink = guidTag && !/isPermaLink=["']false["']/i.test(guidTag)
-    ? plainText(guidTag.replace(/^<guid\\b[^>]*>|<\\/guid\\s*>$/gi, '')) : '';
+    ? plainText(guidTag.replace(/^<guid\b[^>]*>|<\/guid\s*>$/gi, '')) : '';
   return cleanUrl(linkText || href || guidPermalink);
 }
 
 function safeHtml(input = '') {
   let html = decodeXml(input);
-  html = html.replace(/<!--[\\s\\S]*?-->/g, '');
-  html = html.replace(/<(script|style|iframe|object|embed|form|svg|math|video|audio)[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, '');
-  html = html.replace(/<(script|style|iframe|object|embed|form|svg|math|video|audio)\\b[^>]*\\/?\\s*>/gi, '');
-  html = html.replace(/\\s+on[a-z]+\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)/gi, '');
-  html = html.replace(/\\s+(?:style|srcset|id|class)\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)/gi, '');
-  html = html.replace(/\\s+(href|src)\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))/gi, (whole, attr, quoted, dq, sq, bare) => {
+  html = html.replace(/<!--[\s\S]*?-->/g, '');
+  html = html.replace(/<(script|style|iframe|object|embed|form|svg|math|video|audio)[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  html = html.replace(/<(script|style|iframe|object|embed|form|svg|math|video|audio)\b[^>]*\/?\s*>/gi, '');
+  html = html.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  html = html.replace(/\s+(?:style|srcset|id|class)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  html = html.replace(/\s+(href|src)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi, (whole, attr, quoted, dq, sq, bare) => {
     const value = dq ?? sq ?? bare ?? '';
     const url = cleanUrl(value);
     return url ? ' ' + attr.toLowerCase() + '="' + url.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"' : '';
   });
   const allowed = new Set(['p','br','strong','b','em','i','ul','ol','li','h2','h3','blockquote','a','img']);
-  html = html.replace(/<\\/?([a-z0-9:-]+)\\b([^>]*)>/gi, (tag, rawName, attrs) => {
+  html = html.replace(/<\/?([a-z0-9:-]+)\b([^>]*)>/gi, (tag, rawName, attrs) => {
     const name = rawName.toLowerCase();
     if (!allowed.has(name)) return '';
     if (tag.startsWith('</')) return name === 'br' || name === 'img' ? '' : '</' + name + '>';
     let safeAttrs = '';
     if (name === 'a') {
-      const href = attrs.match(/\\shref="([^"]*)"/i)?.[1];
+      const href = attrs.match(/\shref="([^"]*)"/i)?.[1];
       if (href) safeAttrs += ' href="' + href + '" rel="nofollow noopener noreferrer"';
     }
     if (name === 'img') {
-      const src = attrs.match(/\\ssrc="([^"]*)"/i)?.[1];
-      const alt = attrs.match(/\\salt="([^"]*)"/i)?.[1] || '';
+      const src = attrs.match(/\ssrc="([^"]*)"/i)?.[1];
+      const alt = attrs.match(/\salt="([^"]*)"/i)?.[1] || '';
       if (!src) return '';
       safeAttrs += ' src="' + src + '" alt="' + alt.replace(/"/g, '&quot;') + '" loading="lazy"';
     }
@@ -123,7 +123,7 @@ function categoryFor(text) {
 }
 
 function parseEntries(xml) {
-  return [...xml.matchAll(/<item\\b[^>]*>([\\s\\S]*?)<\\/item\\s*>/gi)].map((match) => {
+  return [...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item\s*>/gi)].map((match) => {
     const block = match[1];
     const title = plainText(rawTag(block, ['title']));
     const guid = plainText(rawTag(block, ['guid', 'id']));
@@ -132,7 +132,7 @@ function parseEntries(xml) {
     const publishedRaw = plainText(rawTag(block, ['pubDate', 'published', 'updated', 'dc:date']));
     const publishedAt = publishedRaw && !Number.isNaN(Date.parse(publishedRaw)) ? new Date(publishedRaw).toISOString() : null;
     const organization = plainText(rawTag(block, ['dc:creator', 'press:organization', 'author', 'source', 'organization']));
-    const tags = [...block.matchAll(/<category\\b[^>]*>([\\s\\S]*?)<\\/category\\s*>/gi)].map((m) => plainText(m[1])).join(' ');
+    const tags = [...block.matchAll(/<category\b[^>]*>([\s\S]*?)<\/category\s*>/gi)].map((m) => plainText(m[1])).join(' ');
     const contentHtml = safeHtml(body || rawTag(block, ['description']));
     const image = imageFrom(block);
     const url = linkFrom(block);
