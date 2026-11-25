@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "language": "tr",
+  "categories": [
+    {"id": "turkiye", "name": "Türkiye", "slug": "turkiye"},
+    {"id": "dunya", "name": "Dünya", "slug": "dunya"},
+    {"id": "ekonomi", "name": "Ekonomi", "slug": "ekonomi"},
+    {"id": "politika", "name": "Politika", "slug": "politika"},
+    {"id": "spor", "name": "Spor", "slug": "spor"},
+    {"id": "teknoloji", "name": "Teknoloji", "slug": "teknoloji"},
+    {"id": "saglik", "name": "Sağlık", "slug": "saglik"},
+    {"id": "egitim", "name": "Eğitim", "slug": "egitim"},
+    {"id": "kultur-sanat", "name": "Kültür-Sanat", "slug": "kultur-sanat"},
+    {"id": "yasam", "name": "Yaşam", "slug": "yasam"},
+    {"id": "cevre", "name": "Çevre", "slug": "cevre"}
+  ]
+}
