@@ -9,74 +9,93 @@ const validCategories = new Set(categoryConfig.categories.map((item) => item.id)
 const now = Date.now();
 const maxAge = 30 * 24 * 60 * 60 * 1000;
 const maxFeedBytes = 1_500_000;
-const BLOCKED = /\b(seçim|siyaset|siyasi|parti|meclis|bakan|cumhurbaşkanı|savaş|terör|terörist|cinayet|öldürüldü|ölü bulundu|saldırı|patlama|gözaltı|tutuklandı|mahkeme|dava|kaza|yaralı|hayatını kaybetti|deprem|sel felaketi|yangın|uyuşturucu|silah|şiddet|tecavüz|istismar)\b/i;
+const allowedHosts = {
+  'press-haber-ajansi': ['www.press.org.tr'],
+  'basin-bultenleri': ['basinbultenleri.com', 'www.basinbultenleri.com']
+};
+const BLOCKED = /seçim|siyaset|siyasi|parti|meclis|bakan|cumhurbaşkanı|savaş|terör|terörist|cinayet|öldürüldü|ölü bulundu|saldırı|patlama|gözaltı|tutuklandı|mahkeme|dava|kaza|yaralı|hayatını kaybetti|deprem|sel felaketi|yangın|uyuşturucu|silah|şiddet|tecavüz|istismar/i;
 
 function decodeXml(value = '') {
   return value
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g, '$1')
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
+    .replace(/&#(\\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([\\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
 }
 
 function rawTag(xml, names) {
   for (const name of names) {
-    const safe = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const safe = name.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\$&');
     const match = xml.match(new RegExp('<' + safe + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + safe + '\\s*>', 'i'));
-    if (match) return match[1].replace(/^\s*<!\[CDATA\[/, '').replace(/\]\]>\s*$/, '').trim();
+    if (match) return match[1].replace(/^\\s*<!\\[CDATA\\[/, '').replace(/\\]\\]>\\s*$/, '').trim();
   }
   return '';
 }
 
 function plainText(value = '') {
-  return decodeXml(value.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+  return decodeXml(value.replace(/<[^>]*>/g, ' ')).replace(/\\s+/g, ' ').trim();
 }
 
 function attribute(tag, name) {
-  const match = tag.match(new RegExp("\\b" + name + "=(?:\"([^\"]+)\"|'([^']+)')", "i"));
+  const match = tag.match(new RegExp('\\\\b' + name + '=(?:"([^"]+)"|\\'([^\\']+)\\')', 'i'));
   return match ? decodeXml(match[1] || match[2] || '').trim() : '';
 }
 
 function cleanUrl(value) {
   try {
     const url = new URL(value);
-    if (!['https:', 'http:'].includes(url.protocol)) return '';
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return '';
     return url.toString();
   } catch { return ''; }
 }
 
 function imageFrom(block) {
-  const enclosure = block.match(/<enclosure\b[^>]*>/i)?.[0];
-  const media = block.match(/<(?:media:content|media:thumbnail)\b[^>]*>/i)?.[0];
-  return cleanUrl(attribute(enclosure || media || '', 'url'));
+  const enclosure = block.match(/<enclosure\\b[^>]*>/i)?.[0];
+  const media = block.match(/<(?:media:content|media:thumbnail)\\b[^>]*>/i)?.[0];
+  const candidate = enclosure || media || '';
+  const type = attribute(candidate, 'type');
+  const medium = attribute(candidate, 'medium');
+  if (type && !type.toLowerCase().startsWith('image/')) return '';
+  if (medium && medium.toLowerCase() !== 'image') return '';
+  return cleanUrl(attribute(candidate, 'url'));
+}
+
+function linkFrom(block) {
+  const linkTag = block.match(/<link\\b[^>]*>([\\s\\S]*?)<\\/link\\s*>/i)?.[0];
+  const linkText = linkTag ? plainText(linkTag.replace(/^<link\\b[^>]*>|<\\/link\\s*>$/gi, '')) : '';
+  const href = linkTag ? attribute(linkTag.match(/^<link\\b[^>]*>/i)?.[0] || '', 'href') : '';
+  const guidTag = block.match(/<guid\\b[^>]*>([\\s\\S]*?)<\\/guid\\s*>/i)?.[0];
+  const guidPermalink = guidTag && !/isPermaLink=["']false["']/i.test(guidTag)
+    ? plainText(guidTag.replace(/^<guid\\b[^>]*>|<\\/guid\\s*>$/gi, '')) : '';
+  return cleanUrl(linkText || href || guidPermalink);
 }
 
 function safeHtml(input = '') {
   let html = decodeXml(input);
-  html = html.replace(/<!--[\s\S]*?-->/g, '');
-  html = html.replace(/<(script|style|iframe|object|embed|form|svg|math|video|audio)[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
-  html = html.replace(/<(script|style|iframe|object|embed|form|svg|math|video|audio)\b[^>]*\/?\s*>/gi, '');
-  html = html.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
-  html = html.replace(/\s+(?:style|srcset|id|class)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
-  html = html.replace(/\s+(href|src)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi, (whole, attr, quoted, dq, sq, bare) => {
+  html = html.replace(/<!--[\\s\\S]*?-->/g, '');
+  html = html.replace(/<(script|style|iframe|object|embed|form|svg|math|video|audio)[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, '');
+  html = html.replace(/<(script|style|iframe|object|embed|form|svg|math|video|audio)\\b[^>]*\\/?\\s*>/gi, '');
+  html = html.replace(/\\s+on[a-z]+\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)/gi, '');
+  html = html.replace(/\\s+(?:style|srcset|id|class)\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)/gi, '');
+  html = html.replace(/\\s+(href|src)\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))/gi, (whole, attr, quoted, dq, sq, bare) => {
     const value = dq ?? sq ?? bare ?? '';
     const url = cleanUrl(value);
     return url ? ' ' + attr.toLowerCase() + '="' + url.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"' : '';
   });
   const allowed = new Set(['p','br','strong','b','em','i','ul','ol','li','h2','h3','blockquote','a','img']);
-  html = html.replace(/<\/?([a-z0-9:-]+)\b([^>]*)>/gi, (tag, rawName, attrs) => {
+  html = html.replace(/<\\/?([a-z0-9:-]+)\\b([^>]*)>/gi, (tag, rawName, attrs) => {
     const name = rawName.toLowerCase();
     if (!allowed.has(name)) return '';
     if (tag.startsWith('</')) return name === 'br' || name === 'img' ? '' : '</' + name + '>';
     let safeAttrs = '';
     if (name === 'a') {
-      const href = attrs.match(/\shref="([^"]*)"/i)?.[1];
+      const href = attrs.match(/\\shref="([^"]*)"/i)?.[1];
       if (href) safeAttrs += ' href="' + href + '" rel="nofollow noopener noreferrer"';
     }
     if (name === 'img') {
-      const src = attrs.match(/\ssrc="([^"]*)"/i)?.[1];
-      const alt = attrs.match(/\salt="([^"]*)"/i)?.[1] || '';
+      const src = attrs.match(/\\ssrc="([^"]*)"/i)?.[1];
+      const alt = attrs.match(/\\salt="([^"]*)"/i)?.[1] || '';
       if (!src) return '';
       safeAttrs += ' src="' + src + '" alt="' + alt.replace(/"/g, '&quot;') + '" loading="lazy"';
     }
@@ -104,7 +123,7 @@ function categoryFor(text) {
 }
 
 function parseEntries(xml) {
-  return [...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item\s*>/gi)].map((match) => {
+  return [...xml.matchAll(/<item\\b[^>]*>([\\s\\S]*?)<\\/item\\s*>/gi)].map((match) => {
     const block = match[1];
     const title = plainText(rawTag(block, ['title']));
     const guid = plainText(rawTag(block, ['guid', 'id']));
@@ -112,17 +131,18 @@ function parseEntries(xml) {
     const body = rawTag(block, ['content:encoded', 'content']);
     const publishedRaw = plainText(rawTag(block, ['pubDate', 'published', 'updated', 'dc:date']));
     const publishedAt = publishedRaw && !Number.isNaN(Date.parse(publishedRaw)) ? new Date(publishedRaw).toISOString() : null;
-    const organization = plainText(rawTag(block, ['dc:creator', 'press:organization', 'author']));
-    const tags = [...block.matchAll(/<category\b[^>]*>([\s\S]*?)<\/category\s*>/gi)].map((m) => plainText(m[1])).join(' ');
+    const organization = plainText(rawTag(block, ['dc:creator', 'press:organization', 'author', 'source', 'organization']));
+    const tags = [...block.matchAll(/<category\\b[^>]*>([\\s\\S]*?)<\\/category\\s*>/gi)].map((m) => plainText(m[1])).join(' ');
     const contentHtml = safeHtml(body || rawTag(block, ['description']));
     const image = imageFrom(block);
-    return { title: title.slice(0, 240), guid, summary: summary.slice(0, 500), contentHtml, image, publishedAt, organization, tags };
+    const url = linkFrom(block);
+    return { title: title.slice(0, 240), guid, summary: summary.slice(0, 500), contentHtml, image, publishedAt, organization, tags, url };
   }).filter((item) => item.title && item.guid);
 }
 
 const enabled = sourceConfig.sources.filter((source) =>
   source.enabled === true &&
-  ['approved', 'republishing_permitted_by_published_terms'].includes(source.permission_status) &&
+  ['approved', 'republishing_permitted_by_published_terms', 'republishing_permitted_by_publisher_terms'].includes(source.permission_status) &&
   Array.isArray(source.allowed_fields) &&
   source.allowed_fields.includes('title') &&
   source.allowed_fields.includes('content_html') &&
@@ -133,7 +153,8 @@ const collected = [];
 for (const source of enabled) {
   try {
     const feedUrl = new URL(source.feed_url);
-    if (feedUrl.protocol !== 'https:' || feedUrl.hostname !== 'www.press.org.tr') throw new Error('Feed host is not on the approved HTTPS allowlist.');
+    const hosts = allowedHosts[source.id] || [];
+    if (feedUrl.protocol !== 'https:' || !hosts.includes(feedUrl.hostname)) throw new Error('Feed host is not on this source’s HTTPS allowlist.');
     const response = await fetch(feedUrl, {
       headers: { 'user-agent': 'Gunce-News-Reader/1.0 (+https://turkiye-yasam.pages.dev)', accept: 'application/rss+xml, application/xml, text/xml' },
       redirect: 'error',
@@ -144,6 +165,7 @@ for (const source of enabled) {
     if (bytes.byteLength > maxFeedBytes) throw new Error('Feed exceeds the 1.5 MB limit.');
     const xml = new TextDecoder('utf-8').decode(bytes);
     const entries = parseEntries(xml);
+    let accepted = 0;
     for (const entry of entries) {
       const publishedMs = entry.publishedAt ? Date.parse(entry.publishedAt) : now;
       if (now - publishedMs > maxAge || publishedMs > now + 24 * 60 * 60 * 1000) continue;
@@ -153,9 +175,10 @@ for (const source of enabled) {
       const category = categoryFor(entry.tags + ' ' + entry.title + ' ' + entry.summary);
       const organization = entry.organization && !/^(press|pha|admin|editor|haber)$/i.test(entry.organization) ? entry.organization : '';
       const sourceName = source.name;
+      const isPha = source.id === 'press-haber-ajansi';
       collected.push({
         id: source.id + ':' + digest,
-        slug: 'pha-' + digest,
+        slug: source.id + '-' + digest,
         sourceId: source.id,
         sourceGuid: entry.guid,
         title: entry.title,
@@ -166,11 +189,12 @@ for (const source of enabled) {
         category: validCategories.has(category) ? category : 'yasam',
         sourceName,
         sourceOrganization: organization,
-        attribution: organization ? 'Kaynak: ' + organization + ' · Press Haber Ajansı (PHA)' : 'Kaynak: Press Haber Ajansı (PHA)',
-        url: null
+        attribution: organization ? 'Kaynak: ' + organization + ' · ' + sourceName : 'Kaynak: ' + sourceName,
+        url: isPha ? null : (entry.url || null)
       });
+      accepted++;
     }
-    console.log(source.id + ': parsed ' + entries.length + ' entries; accepted ' + collected.length + ' safe lifestyle stories.');
+    console.log(source.id + ': parsed ' + entries.length + ' entries; accepted ' + accepted + ' safe lifestyle stories.');
   } catch (error) {
     console.error(source.id + ': ' + error.message);
     process.exitCode = 1;
@@ -190,7 +214,7 @@ const result = [...merged.values()]
 
 if (JSON.stringify(result) !== JSON.stringify(existing)) {
   await writeFile(outputPath, JSON.stringify(result, null, 2) + '\n');
-  console.log('Saved ' + result.length + ' PHA news items.');
+  console.log('Saved ' + result.length + ' news items from enabled permitted sources.');
 } else {
-  console.log('No new PHA news items.');
+  console.log('No new news items from enabled permitted sources.');
 }
