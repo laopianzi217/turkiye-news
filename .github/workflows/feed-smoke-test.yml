@@ -137,8 +137,31 @@ jobs:
           def child_names(entry):
               return {local_name(child.tag) for child in list(entry)}
 
+          def valid_http_url(value):
+              if not value:
+                  return False
+              parsed_value = urllib.parse.urlparse(value.strip())
+              return parsed_value.scheme in ("http", "https") and bool(parsed_value.hostname)
+
+          def entry_has_link(entry):
+              # RSS 2.0 normally uses <link>; some feeds use an Atom-style
+              # link href, or a permalink GUID as the canonical item URL.
+              for child in list(entry):
+                  tag = local_name(child.tag)
+                  if tag == "link":
+                      href = child.attrib.get("href", "")
+                      if valid_http_url(href) or valid_http_url(child.text):
+                          return True
+                  if tag == "guid":
+                      is_permalink = child.attrib.get("isPermaLink", "true").lower()
+                      if is_permalink != "false" and valid_http_url(child.text):
+                          return True
+                  if tag == "id" and valid_http_url(child.text):
+                      return True
+              return False
+
           title_count = sum("title" in child_names(entry) for entry in entries)
-          link_count = sum("link" in child_names(entry) for entry in entries)
+          link_count = sum(entry_has_link(entry) for entry in entries)
           id_count = sum(bool({"guid", "id"} & child_names(entry)) for entry in entries)
           date_count = sum(bool({"pubdate", "published", "updated", "date"} & child_names(entry)) for entry in entries)
 
