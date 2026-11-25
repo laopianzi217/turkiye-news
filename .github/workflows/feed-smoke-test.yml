@@ -165,6 +165,16 @@ jobs:
           link_count = sum(entry_has_link(entry) for entry in entries)
           id_count = sum(bool({"guid", "id"} & child_names(entry)) for entry in entries)
           date_count = sum(bool({"pubdate", "published", "updated", "date"} & child_names(entry)) for entry in entries)
+          content_count = sum(bool({"encoded", "content", "description", "summary"} & child_names(entry)) for entry in entries)
+          image_count = sum(
+              any(local_name(child.tag) in {"enclosure", "thumbnail"} or
+                  (local_name(child.tag) == "content" and child.attrib.get("url")) or
+                  (local_name(child.tag) == "image" and child.attrib.get("href"))
+                  for child in list(entry))
+              for entry in entries
+          )
+          attribution_count = sum(bool({"creator", "author", "source", "organization", "publisher"} & child_names(entry)) for entry in entries)
+          category_count = sum("category" in child_names(entry) for entry in entries)
 
           print("## Feed 技术检查结果")
           print(f"- 来源：{source}")
@@ -179,7 +189,11 @@ jobs:
           print(f"- 含链接的条目：{link_count}")
           print(f"- 含 ID/GUID 的条目：{id_count}")
           print(f"- 含发布时间字段的条目：{date_count}")
-          print("- 原始正文未写入仓库、工件或测试报告。")
+          print(f"- 含正文/摘要字段的条目：{content_count}")
+          print(f"- 含图片字段的条目：{image_count}")
+          print(f"- 含发布机构/作者字段的条目：{attribution_count}")
+          print(f"- 含分类字段的条目：{category_count}")
+          print("- 未输出或保存任何新闻正文、标题或图片 URL。")
 
           if not entries:
               stop("XML 可解析，但没有找到 RSS item / Atom entry。")
