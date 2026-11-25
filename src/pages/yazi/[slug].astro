@@ -1,0 +1,9 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import categories from '../../data/categories.json';
+import articles from '../../data/articles.json';
+export function getStaticPaths(){return articles.map((article)=>({params:{slug:article.slug},props:{article}}));}
+const {article}=Astro.props; const category=categories.categories.find((c)=>c.id===article.category);
+const dateLabel=new Date(article.date+'T12:00:00+03:00').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+---
+<BaseLayout title={article.title+' — Günce'} description={article.description}><article class="wrap story-page"><a class="back-link" href={'/kategori/'+(category?.slug??'yasam')+'/'}>← {category?.name??'Yaşam'}</a><header class="story-header"><p class="eyebrow">{category?.name??'Yaşam'} · {dateLabel} · {article.readTime} OKUMA</p><h1>{article.title}</h1><p class="story-deck">{article.description}</p></header><div class={'story-visual visual '+article.visual}><span class="visual-caption">GÜNCE EDİTORYAL</span><span class="visual-mark">{article.label.toLocaleUpperCase('tr-TR')}</span></div>{article.demo&&<p class="demo-notice">Örnek içerik: Bu yazı tasarım ve sayfa yapısını göstermek için hazırlanmıştır; gerçek haber değildir.</p>}<div class="story-body">{article.content.map((s)=><section><h2>{s.heading}</h2>{s.paragraphs.map((p)=><p>{p}</p>)}</section>)}</div><div class="story-end"><span>GÜNCE.</span><a class="text-link" href="/">Diğer yazılara göz at →</a></div></article></BaseLayout>

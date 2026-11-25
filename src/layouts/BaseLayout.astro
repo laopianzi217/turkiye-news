@@ -1,0 +1,11 @@
+---
+import '../styles/global.css';
+import categories from '../data/categories.json';
+const { title = 'Günce — Yaşamın içinden', description = 'Türkiye’den moda, güzellik, yeme-içme ve yaşam trendleri.' } = Astro.props;
+---
+<!doctype html>
+<html lang="tr"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="description" content={description} /><meta name="theme-color" content="#f7f5f0" /><title>{title}</title></head>
+<body><div class="topline">TÜRKİYE'DEN YAŞAM, STİL VE TÜKETİM KÜLTÜRÜ</div>
+<header class="site-header wrap"><a class="brand" href="/">GÜNCE<span>.</span></a><div class="brand-note">İYİ YAŞAMIN GÜNCEL NOTLARI</div><a class="header-link" href="/#latest">SON YAZILAR ↗</a></header>
+<nav class="category-nav"><div class="wrap nav-inner"><a href="/">Ana Sayfa</a>{categories.categories.slice(0,6).map((c)=><a href={'/kategori/'+c.slug+'/'}>{c.name}</a>)}</div></nav>
+<main><slot /></main><footer class="site-footer"><div class="wrap footer-inner"><a class="brand footer-brand" href="/">GÜNCE<span>.</span></a><p>Moda, lezzet, sağlık ve günlük yaşama dair özgün içerikler.</p><small>© {new Date().getFullYear()} Günce. Örnek tasarım sürümü.</small></div></footer></body></html>

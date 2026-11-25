@@ -1,0 +1,8 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import categories from '../../data/categories.json';
+import articles from '../../data/articles.json';
+export function getStaticPaths(){return categories.categories.map((category)=>({params:{slug:category.slug},props:{category}}));}
+const {category}=Astro.props; const items=articles.filter((a)=>a.category===category.id);
+---
+<BaseLayout title={category.name+' — Günce'} description={category.name+' kategorisinde Günce yazıları.'}><section class="wrap listing-page"><p class="eyebrow">GÜNCE / KATEGORİ</p><h1>{category.name}<span>.</span></h1><p class="listing-intro">Bu kategorideki rehberleri, fikirleri ve güncel seçkileri keşfedin.</p>{items.length?<div class="article-grid listing-grid">{items.map((a)=><article class="article-card"><a class={'card-visual visual '+a.visual} href={'/yazi/'+a.slug+'/'}><span class="card-stamp">GÜNCE SEÇKİSİ</span><span class="card-symbol">{a.label.toLocaleUpperCase('tr-TR')}</span></a><div class="card-meta"><span>{category.name}</span><span>{a.readTime} OKUMA</span></div><h3><a href={'/yazi/'+a.slug+'/'}>{a.title}</a></h3><p>{a.description}</p><a class="text-link small-link" href={'/yazi/'+a.slug+'/'}>Yazıyı oku →</a></article>)}</div>:<div class="empty-state"><h2>Bu bölüm hazırlanıyor.</h2><p>Bu kategori için yeni yazılar yakında burada olacak.</p><a class="text-link" href="/">Ana sayfaya dön →</a></div>}</section></BaseLayout>
