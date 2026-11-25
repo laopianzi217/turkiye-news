@@ -176,6 +176,10 @@ jobs:
           attribution_count = sum(bool({"creator", "author", "source", "organization", "publisher"} & child_names(entry)) for entry in entries)
           category_count = sum("category" in child_names(entry) for entry in entries)
 
+          # Report only XML schema names and attribute names; never print story text or URLs.
+          field_names = sorted({local_name(child.tag) for entry in entries for child in list(entry)})
+          attribute_names = sorted({local_name(key) for entry in entries for child in list(entry) for key in child.attrib})
+
           print("## Feed 技术检查结果")
           print(f"- 来源：{source}")
           print(f"- 检查时间（UTC）：{datetime.now(timezone.utc).isoformat()}")
@@ -193,6 +197,8 @@ jobs:
           print(f"- 含图片字段的条目：{image_count}")
           print(f"- 含发布机构/作者字段的条目：{attribution_count}")
           print(f"- 含分类字段的条目：{category_count}")
+          print(f"- RSS 条目字段名（仅字段名）：{", ".join(field_names)}")
+          print(f"- XML 属性名（仅属性名）：{", ".join(attribute_names) or "无"}")
           print("- 未输出或保存任何新闻正文、标题或图片 URL。")
 
           if not entries:
