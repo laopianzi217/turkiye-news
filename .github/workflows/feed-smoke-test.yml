@@ -1,0 +1,163 @@
+name: Manual feed XML smoke test
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_name:
+        description: "来源名称（仅用于测试报告）"
+        required: true
+        type: string
+      feed_url:
+        description: "已获准进行本次技术测试的 HTTPS RSS/Atom 地址"
+        required: true
+        type: string
+      permission_confirmed:
+        description: "我确认该来源允许本次单次自动技术请求"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-feed-smoke-test
+  cancel-in-progress: false
+
+jobs:
+  inspect-feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate and inspect feed
+        env:
+          SOURCE_NAME: ${{ inputs.source_name }}
+          FEED_URL: ${{ inputs.feed_url }}
+          PERMISSION_CONFIRMED: ${{ inputs.permission_confirmed }}
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          import urllib.request
+          import urllib.error
+          import urllib.parse
+          import xml.etree.ElementTree as ET
+          from datetime import datetime, timezone
+
+          source = os.environ.get("SOURCE_NAME", "").strip()
+          url = os.environ.get("FEED_URL", "").strip()
+          confirmed = os.environ.get("PERMISSION_CONFIRMED", "").lower() == "true"
+
+          def stop(message):
+              print(f"::error::{message}")
+              sys.exit(1)
+
+          if not confirmed:
+              stop("未确认来源授权；为避免未经许可的自动访问，本次请求已阻止。")
+          if not source or not url:
+              stop("来源名称和 Feed URL 均为必填项。")
+
+          parsed = urllib.parse.urlparse(url)
+          if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+              stop("仅允许不含凭据的 HTTPS URL。")
+
+          allowed_domains = (
+              "trthaber.com",
+              "haberturk.com",
+              "mfa.gov.tr",
+              "ktb.gov.tr",
+              "saglik.gov.tr",
+              "aa.com.tr",
+          )
+
+          def allowed_host(host):
+              host = (host or "").lower().rstrip(".")
+              return any(host == domain or host.endswith("." + domain) for domain in allowed_domains)
+
+          if not allowed_host(parsed.hostname):
+              stop("该主机不在当前核查过的来源域名范围内；请先审核并更新工作流白名单。")
+          if parsed.port not in (None, 443):
+              stop("仅允许 HTTPS 默认端口 443。")
+
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "User-Agent": "TurkiyeNewsFeedProtocolCheck/1.0 (+manual GitHub Actions test)",
+                  "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*;q=0.1",
+              },
+              method="GET",
+          )
+
+          try:
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  status = response.status
+                  final_url = response.geturl()
+                  final_host = urllib.parse.urlparse(final_url).hostname
+                  content_type = response.headers.get("Content-Type", "未提供").split(";")[0].strip().lower()
+                  body = response.read(2 * 1024 * 1024 + 1)
+          except urllib.error.HTTPError as exc:
+              stop(f"HTTP 请求失败，状态码：{exc.code}")
+          except Exception as exc:
+              stop(f"请求失败：{type(exc).__name__}")
+
+          if not allowed_host(final_host):
+              stop("请求发生跳转到白名单之外的主机，已阻止解析。")
+          if status != 200:
+              stop(f"HTTP 状态不是 200：{status}")
+          if len(body) > 2 * 1024 * 1024:
+              stop("响应超过 2 MiB 安全上限，未继续解析。")
+          if b"<!DOCTYPE" in body.upper() or b"<!ENTITY" in body.upper():
+              stop("检测到 DOCTYPE/ENTITY 声明，出于安全原因拒绝解析。")
+
+          try:
+              root = ET.fromstring(body)
+          except ET.ParseError as exc:
+              stop(f"响应不是可解析的 XML：{exc}")
+
+          def local_name(tag):
+              return tag.rsplit("}", 1)[-1].lower()
+
+          root_name = local_name(root.tag)
+          nodes = list(root.iter())
+          names = [local_name(node.tag) for node in nodes]
+
+          if root_name == "rss":
+              feed_type = "RSS"
+              entries = [node for node in nodes if local_name(node.tag) == "item"]
+          elif root_name == "feed":
+              feed_type = "Atom"
+              entries = [node for node in nodes if local_name(node.tag) == "entry"]
+          elif root_name == "rdf":
+              feed_type = "RSS/RDF"
+              entries = [node for node in nodes if local_name(node.tag) == "item"]
+          else:
+              stop(f"XML 根节点不是受支持的 RSS/Atom 格式：{root_name}")
+
+          def child_names(entry):
+              return {local_name(child.tag) for child in list(entry)}
+
+          title_count = sum("title" in child_names(entry) for entry in entries)
+          link_count = sum("link" in child_names(entry) for entry in entries)
+          id_count = sum(bool({"guid", "id"} & child_names(entry)) for entry in entries)
+          date_count = sum(bool({"pubdate", "published", "updated", "date"} & child_names(entry)) for entry in entries)
+
+          print("## Feed 技术检查结果")
+          print(f"- 来源：{source}")
+          print(f"- 检查时间（UTC）：{datetime.now(timezone.utc).isoformat()}")
+          print(f"- HTTP 状态：{status}")
+          print(f"- 主机：{final_host}")
+          print(f"- Content-Type：{content_type or '未提供'}")
+          print(f"- 响应大小：{len(body)} bytes")
+          print(f"- 格式：{feed_type}")
+          print(f"- 条目数量：{len(entries)}")
+          print(f"- 含标题的条目：{title_count}")
+          print(f"- 含链接的条目：{link_count}")
+          print(f"- 含 ID/GUID 的条目：{id_count}")
+          print(f"- 含发布时间字段的条目：{date_count}")
+          print("- 原始正文未写入仓库、工件或测试报告。")
+
+          if not entries:
+              stop("XML 可解析，但没有找到 RSS item / Atom entry。")
+          if title_count != len(entries) or link_count != len(entries):
+              stop("部分条目缺少标题或链接；需要人工检查 Feed 结构。")
+          PY
