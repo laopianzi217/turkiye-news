@@ -81,6 +81,30 @@
       "permission_status": "subscription_contract_required",
       "allowed_fields": [],
       "notes": "Excluded from free-source assumptions. Reassess only after a subscription contract and cost are explicitly approved."
+    },
+    {
+      "id": "press-haber-ajansi",
+      "name": "Press Haber Ajansı (PHA)",
+      "type": "press_agency",
+      "homepage": "https://www.press.org.tr/",
+      "source_directory_url": "https://www.press.org.tr/ucretsiz-haber-api",
+      "feed_url": "https://www.press.org.tr/ajans/rss.xml",
+      "language": "tr",
+      "enabled": false,
+      "permission_status": "republishing_permitted_by_published_terms",
+      "allowed_fields": [
+        "title",
+        "summary",
+        "content_html",
+        "image",
+        "images",
+        "date_published",
+        "organization",
+        "sectors",
+        "cities"
+      ],
+      "attribution_required": true,
+      "notes": "Published terms explicitly permit free publication on websites and apps, including commercial sites; headlines may be edited and text shortened without changing meaning. Attribute the originating institution or PHA (e.g. '(PHA)'). Images are stated to be supplied by institutions for publication. Enable only after the RSS endpoint and item structure pass a live technical test."
     }
   ]
 }
