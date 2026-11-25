@@ -69,6 +69,7 @@ jobs:
               "saglik.gov.tr",
               "aa.com.tr",
               "press.org.tr",
+              "basinbultenleri.com",
           )
 
           def allowed_host(host):
