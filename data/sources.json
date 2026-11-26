@@ -136,7 +136,13 @@
         "category"
       ],
       "attribution_required": true,
-      "notes": "Publisher page states publishers may use official company bulletins free of charge, republish them as-is with source attribution, and use press images shared in bulletins. Feed field coverage passed a 14-item dry-run. Automatic import remains limited to recent, non-sensitive lifestyle stories; attribution and original article links are retained where provided."
+      "notes": "Publisher page and FAQ state that news sites, newspapers and magazines may use official company bulletins free of charge, republish as-is with source attribution, and use press images supplied in bulletins. Collects the general feed plus the publisher's health, retail and tourism category feeds; duplicate items are deduplicated by GUID. Only recent, non-sensitive lifestyle items are imported.",
+      "feed_urls": [
+        "https://basinbultenleri.com/feed",
+        "https://basinbultenleri.com/feed?kategori=saglik",
+        "https://basinbultenleri.com/feed?kategori=perakende",
+        "https://basinbultenleri.com/feed?kategori=turizm"
+      ]
     }
   ]
 }
