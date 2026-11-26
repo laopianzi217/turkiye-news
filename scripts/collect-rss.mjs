@@ -108,7 +108,7 @@ function categoryFor(text) {
   // Normalize Turkish diacritics so both "sağlık" and "saglik" match.
   const value = text.toLocaleLowerCase('tr-TR')
     .normalize('NFD')
-    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/ı/g, 'i');
   const rules = [
     ['moda', /moda|tekstil|giyim|tasarim|koleksiyon|defile/],
