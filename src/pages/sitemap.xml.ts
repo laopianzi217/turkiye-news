@@ -7,7 +7,7 @@ const SITE = 'https://turkiye-yasam.pages.dev';
 const escapeXml = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 
 export const GET: APIRoute = () => {
-  const entries = [
+  const entries: Array<{ path: string; date?: string; priority: string; changefreq: string }> = [
     { path: '/', priority: '1.0', changefreq: 'daily' },
     ...categories.categories.map((category) => ({ path: `/kategori/${category.slug}/`, priority: '0.7', changefreq: 'weekly' })),
     ...articles.map((article) => ({ path: `/yazi/${article.slug}/`, date: article.date, priority: '0.8', changefreq: 'monthly' })),
