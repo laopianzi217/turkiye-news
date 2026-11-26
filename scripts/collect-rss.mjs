@@ -172,11 +172,13 @@ for (const source of enabled) {
     const xml = new TextDecoder('utf-8').decode(bytes);
     const entries = parseEntries(xml);
     let accepted = 0;
+    const rejected = { tooOld: 0, future: 0, blocked: 0, noContent: 0 };
     for (const entry of entries) {
       const publishedMs = entry.publishedAt ? Date.parse(entry.publishedAt) : now;
-      if (now - publishedMs > maxAge || publishedMs > now + 24 * 60 * 60 * 1000) continue;
-      if (BLOCKED.test(entry.title + ' ' + entry.summary)) continue;
-      if (!entry.contentHtml && !entry.summary) continue;
+      if (now - publishedMs > maxAge) { rejected.tooOld++; continue; }
+      if (publishedMs > now + 24 * 60 * 60 * 1000) { rejected.future++; continue; }
+      if (BLOCKED.test(entry.title + ' ' + entry.summary)) { rejected.blocked++; continue; }
+      if (!entry.contentHtml && !entry.summary) { rejected.noContent++; continue; }
       const digest = createHash('sha256').update(source.id + ':' + entry.guid).digest('hex').slice(0, 20);
       const category = categoryFor(entry.tags + ' ' + entry.title + ' ' + entry.summary);
       const organization = entry.organization && !/^(press|pha|admin|editor|haber)$/i.test(entry.organization) ? entry.organization : '';
@@ -200,7 +202,7 @@ for (const source of enabled) {
       });
       accepted++;
     }
-    console.log(source.id + ': parsed ' + entries.length + ' entries; accepted ' + accepted + ' safe lifestyle stories.');
+    console.log(source.id + ': parsed ' + entries.length + '; accepted ' + accepted + '; rejected ' + JSON.stringify(rejected) + '.');
   } catch (error) {
     console.error(source.id + ' (' + feedUrlValue + '): ' + error.message);
     process.exitCode = 1;
