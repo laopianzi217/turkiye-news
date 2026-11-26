@@ -1,0 +1,44 @@
+name: Sync derivative repositories
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/workflows/sync-derivatives.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: derivative-sync-main
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: github.repository == 'laopianzi217/turkiye-news'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync main branch to all derivatives
+        env:
+          DERIVATIVE_ADMIN_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$DERIVATIVE_ADMIN_TOKEN" ]; then
+            echo "DERIVATIVE_ADMIN_TOKEN is not configured; skipping derivative sync."
+            exit 1
+          fi
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const repos = JSON.parse(fs.readFileSync('data/derivatives.json', 'utf8'));
+          if (!Array.isArray(repos)) throw new Error('data/derivatives.json must be a JSON array');
+          for (const repo of repos) {
+            if (typeof repo !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) {
+              throw new Error(`Invalid derivative repository name: ${repo}`);
+            }
+          }
+          fs.writeFileSync('/tmp/derivatives.txt', repos.join('\n'));
+          NODE
+          while IFS= read -r target; do
+            [ -z "$target" ] && continue
+            echo "Syncing $target"
+            git remote remove derivative 2>/dev/null || true
+            git remote add derivative "https://x-access-token:$DERIVATIVE_ADMIN_TOKEN@github.com/$target.git"
+            git push derivative HEAD:main --force
+          done < /tmp/derivatives.txt
