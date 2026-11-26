@@ -5,7 +5,7 @@ import articles from '../data/articles.json';
 import news from '../data/news.json';
 const brandNews = news.filter((item) => item.contentType === 'brand_release' || item.sourceId === 'basin-bultenleri').slice(0, 6);
 const sponsorArticle = news.filter((item) => item.sourceId === 'matrixqr-blog').slice(0, 1);
-const latestNews = news.filter((item) => !(item.contentType === 'brand_release' || item.sourceId === 'basin-bultenleri')).slice(0, 8);
+const latestNews = news.filter((item) => !(item.contentType === 'brand_release' || item.sourceId === 'basin-bultenleri' || item.sourceId === 'matrixqr-blog')).slice(0, 8);
 const featured=articles[0]; const latest=articles.slice(1);
 const categoryName=(id)=>categories.categories.find((c)=>c.id===id)?.name ?? 'Yaşam';
 ---
