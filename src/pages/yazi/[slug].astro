@@ -7,7 +7,7 @@ const {article}=Astro.props;
 const category=categories.categories.find((c)=>c.id===article.category);
 const dateLabel=new Date(article.date+'T12:00:00+03:00').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
 ---
-<BaseLayout title={article.title+' — Günce'} description={article.description}>
+<BaseLayout title={article.title+' — Günce'} description={article.description} image={article.image} type="article">
   <article class="wrap story-page">
     <a class="back-link" href={'/kategori/'+(category?.slug??'yasam')+'/'}>← {category?.name??'Yaşam'}</a>
     <header class="story-header">
