@@ -1,11 +1,44 @@
 ---
 import '../styles/global.css';
 import categories from '../../data/categories.json';
-const { title = 'Günce — Yaşamın içinden', description = 'Türkiye’den moda, güzellik, yeme-içme ve yaşam trendleri.' } = Astro.props;
+const {
+  title = 'Günce — Yaşamın içinden',
+  description = 'Türkiye’den moda, güzellik, yeme-içme, sağlık, spor ve yaşam trendleri.',
+  image = '',
+  type = 'website',
+  noindex = false
+} = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const robots = noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large';
+const absoluteImage = image ? new URL(image, Astro.site).href : '';
 ---
 <!doctype html>
-<html lang="tr"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="description" content={description} /><meta name="theme-color" content="#f7f5f0" /><title>{title}</title></head>
-<body><div class="topline">TÜRKİYE'DEN YAŞAM, STİL VE TÜKETİM KÜLTÜRÜ</div>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content={description} />
+  <meta name="robots" content={robots} />
+  <meta name="theme-color" content="#f7f5f0" />
+  <link rel="canonical" href={canonical} />
+  <meta property="og:locale" content="tr_TR" />
+  <meta property="og:site_name" content="GÜNCE" />
+  <meta property="og:type" content={type} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonical} />
+  {absoluteImage && <meta property="og:image" content={absoluteImage} />}
+  <meta name="twitter:card" content={absoluteImage ? 'summary_large_image' : 'summary'} />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  {absoluteImage && <meta name="twitter:image" content={absoluteImage} />}
+  <title>{title}</title>
+</head>
+<body>
+<div class="topline">TÜRKİYE'DEN YAŞAM, STİL VE TÜKETİM KÜLTÜRÜ</div>
 <header class="site-header wrap"><a class="brand" href="/">GÜNCE<span>.</span></a><div class="brand-note">İYİ YAŞAMIN GÜNCEL NOTLARI</div><a class="header-link" href="/#latest">SON YAZILAR ↗</a></header>
 <nav class="category-nav"><div class="wrap nav-inner"><a href="/">Ana Sayfa</a>{categories.categories.slice(0,6).map((c)=><a href={'/kategori/'+c.slug+'/'}>{c.name}</a>)}</div></nav>
-<main><slot /></main><footer class="site-footer"><div class="wrap footer-inner"><a class="brand footer-brand" href="/">GÜNCE<span>.</span></a><p>Moda, lezzet, sağlık ve günlük yaşama dair özgün içerikler.</p><small>© {new Date().getFullYear()} Günce. Örnek tasarım sürümü.</small></div></footer></body></html>
+<main><slot /></main>
+<footer class="site-footer"><div class="wrap footer-inner"><a class="brand footer-brand" href="/">GÜNCE<span>.</span></a><p>Moda, lezzet, sağlık ve günlük yaşama dair özgün içerikler.</p><small>© {new Date().getFullYear()} Günce.</small></div></footer>
+</body>
+</html>
