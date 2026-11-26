@@ -6,8 +6,17 @@ const {
   description = 'Türkiye’den moda, güzellik, yeme-içme, sağlık, spor ve yaşam trendleri.',
   image = '',
   type = 'website',
-  noindex = false
+  noindex = false,
+  structuredData = null
 } = Astro.props;
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    { '@type': 'Organization', name: 'GÜNCE', url: 'https://turkiye-yasam.pages.dev/' },
+    { '@type': 'WebSite', name: 'GÜNCE', url: 'https://turkiye-yasam.pages.dev/', inLanguage: 'tr-TR', publisher: { '@type': 'Organization', name: 'GÜNCE' } }
+  ]
+};
+const jsonLd = JSON.stringify(structuredData ? [websiteSchema, structuredData] : websiteSchema).replaceAll('<', '\\u003c');
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const robots = noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large';
 const absoluteImage = image ? new URL(image, Astro.site).href : '';
@@ -33,6 +42,7 @@ const absoluteImage = image ? new URL(image, Astro.site).href : '';
   <meta name="twitter:description" content={description} />
   {absoluteImage && <meta name="twitter:image" content={absoluteImage} />}
   <title>{title}</title>
+  <script type="application/ld+json" set:html={jsonLd} />
 </head>
 <body>
 <div class="topline">TÜRKİYE'DEN YAŞAM, STİL VE TÜKETİM KÜLTÜRÜ</div>
