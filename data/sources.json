@@ -136,12 +136,19 @@
         "category"
       ],
       "attribution_required": true,
-      "notes": "Publisher page and FAQ state that news sites, newspapers and magazines may use official company bulletins free of charge, republish as-is with source attribution, and use press images supplied in bulletins. Collects the general feed plus the publisher's health, retail and tourism category feeds; duplicate items are deduplicated by GUID. Only recent, non-sensitive lifestyle items are imported.",
+      "notes": "Publisher terms explicitly allow news sites, newspapers and magazines to republish official company bulletins as-is with source attribution and use press images supplied in bulletins. Collects the general feed and all published sector feeds; duplicate items are deduplicated by GUID. Only recent, non-sensitive lifestyle-relevant items are imported.",
       "feed_urls": [
         "https://basinbultenleri.com/feed",
+        "https://basinbultenleri.com/feed?kategori=teknoloji",
         "https://basinbultenleri.com/feed?kategori=saglik",
         "https://basinbultenleri.com/feed?kategori=perakende",
-        "https://basinbultenleri.com/feed?kategori=turizm"
+        "https://basinbultenleri.com/feed?kategori=enerji",
+        "https://basinbultenleri.com/feed?kategori=otomotiv",
+        "https://basinbultenleri.com/feed?kategori=turizm",
+        "https://basinbultenleri.com/feed?kategori=finans",
+        "https://basinbultenleri.com/feed?kategori=insaat",
+        "https://basinbultenleri.com/feed?kategori=egitim",
+        "https://basinbultenleri.com/feed?kategori=medya"
       ]
     }
   ]
