@@ -4,6 +4,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual runs deploy the latest committed content to Cloudflare Pages.
   workflow_dispatch:
 permissions:
   contents: read
