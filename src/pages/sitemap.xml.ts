@@ -10,7 +10,7 @@ export const GET: APIRoute = () => {
   const entries: Array<{ path: string; date?: string; priority: string; changefreq: string }> = [
     { path: '/', priority: '1.0', changefreq: 'daily' },
     ...categories.categories.map((category) => ({ path: `/kategori/${category.slug}/`, priority: '0.7', changefreq: 'weekly' })),
-    ...articles.map((article) => ({ path: `/yazi/${article.slug}/`, date: article.date, priority: '0.8', changefreq: 'monthly' })),
+    ...articles.filter((article) => article.demo !== true).map((article) => ({ path: `/yazi/${article.slug}/`, date: article.date, priority: '0.8', changefreq: 'monthly' })),
     ...news.map((item) => ({ path: `/haber/${item.slug}/`, date: item.publishedAt, priority: '0.8', changefreq: 'weekly' }))
   ];
   const unique = [...new Map(entries.map((entry) => [entry.path, entry])).values()];
