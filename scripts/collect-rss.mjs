@@ -105,18 +105,22 @@ function safeHtml(input = '') {
 }
 
 function categoryFor(text) {
-  const value = text.toLocaleLowerCase('tr-TR');
+  // Normalize Turkish diacritics so both "sağlık" and "saglik" match.
+  const value = text.toLocaleLowerCase('tr-TR')
+    .normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/ı/g, 'i');
   const rules = [
-    ['moda', /moda|tekstil|giyim|tasarım|koleksiyon|defile/],
-    ['guzellik', /güzellik|kozmetik|cilt bakımı|makyaj|parfüm|saç bakımı/],
-    ['yeme-icme', /gastronomi|yemek|gıda|yiyecek|içecek|restoran|kahve|mutfak|şef|tarif/],
-    ['saglik', /sağlık|wellness|beslenme|fitness|iyi yaşam/],
+    ['moda', /moda|tekstil|giyim|tasarim|koleksiyon|defile/],
+    ['guzellik', /guzellik|kozmetik|cilt bakimi|makyaj|parfum|sac bakimi/],
+    ['yeme-icme', /gastronomi|yemek|gida|yiyecek|icecek|restoran|kahve|mutfak|sef|tarif/],
+    ['saglik', /saglik|wellness|beslenme|fitness|iyi yasam/],
     ['spor', /spor|futbol|basketbol|voleybol|tenis|atletizm/],
-    ['alisveris', /alışveriş|perakende|mağaza|marka|e-ticaret|tüketici/],
-    ['teknoloji', /teknoloji|yapay zeka|yazılım|dijital|mobil|uygulama/],
+    ['alisveris', /alisveris|perakende|magaza|marka|e-ticaret|tuketici/],
+    ['teknoloji', /teknoloji|yapay zeka|yazilim|dijital|mobil|uygulama/],
     ['seyahat', /turizm|seyahat|otel|havayolu|tatil|destinasyon/],
-    ['kultur-sanat', /kültür|sanat|sergi|müze|sinema|tiyatro|müzik/],
-    ['turkiye', /yerel yönetim|belediye|şehir|ilçe|türkiye/]
+    ['kultur-sanat', /kultur|sanat|sergi|muze|sinema|tiyatro|muzik/],
+    ['turkiye', /yerel yonetim|belediye|sehir|ilce|turkiye/]
   ];
   for (const [id, pattern] of rules) if (pattern.test(value)) return id;
   return 'yasam';
