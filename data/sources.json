@@ -151,5 +151,26 @@
         "https://basinbultenleri.com/feed?kategori=medya"
       ]
     }
+  ],
+  "sponsors": [
+    {
+      "id": "matrixqr-blog",
+      "name": "MatrixQR Blog",
+      "homepage": "https://blog.matrixqr.cc/",
+      "sitemap_url": "https://blog.matrixqr.cc/sitemap.xml",
+      "enabled": true,
+      "permission_status": "republishing_permitted_by_sponsor_agreement",
+      "allowed_fields": [
+        "title",
+        "summary",
+        "content_html",
+        "image",
+        "date_published",
+        "url"
+      ],
+      "attribution_required": true,
+      "retention": "latest_article_only",
+      "notes": "The sponsor has expressly agreed to republication. Import only the newest published article from the public sitemap; replace the previous sponsor article when a newer one appears."
+    }
   ]
 }
