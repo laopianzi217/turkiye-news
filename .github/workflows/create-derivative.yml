@@ -1,13 +1,32 @@
-name: Create a public derivative site
+name: Create public derivative sites
+
 on:
   workflow_dispatch:
     inputs:
-      repository_name:
-        description: 'New repository name (for example: turkiye-yasam-2)'
+      creation_mode:
+        description: 'Choose one repository or a numbered range'
         required: true
+        type: choice
+        options:
+          - single
+          - range
+        default: single
+      repository_name:
+        description: 'Single repository name, for example turkiye-yasam-2'
+        required: false
         type: string
+      start_number:
+        description: 'First number for range mode, for example 30'
+        required: false
+        type: string
+      end_number:
+        description: 'Last number for range mode, for example 80'
+        required: false
+        type: string
+
 permissions:
   contents: write
+
 jobs:
   create:
     if: github.repository == 'laopianzi217/turkiye-news'
@@ -16,48 +35,146 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Validate repository name
+
+      - name: Validate inputs and required secrets
         env:
+          CREATION_MODE: ${{ inputs.creation_mode }}
           REPOSITORY_NAME: ${{ inputs.repository_name }}
+          START_NUMBER: ${{ inputs.start_number }}
+          END_NUMBER: ${{ inputs.end_number }}
+          GH_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if ! [[ "$REPOSITORY_NAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
-            echo "Use only letters, numbers, dots, underscores, and hyphens." >&2
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Missing main-repository secret: DERIVATIVE_ADMIN_TOKEN" >&2
             exit 1
           fi
-          if [ "$REPOSITORY_NAME" = "turkiye-news" ]; then
-            echo "The derivative cannot use the main repository name." >&2
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID in the main repository Actions secrets." >&2
+            echo "Add both before creating derivative sites so their deployments can be configured automatically." >&2
             exit 1
           fi
-      - name: Create public repository and copy the current site
+          if [ "$CREATION_MODE" = "single" ]; then
+            if ! [[ "$REPOSITORY_NAME" =~ ^[A-Za-z0-9._-]+$ ]] || [ "$REPOSITORY_NAME" = "turkiye-news" ]; then
+              echo "Enter a valid repository name (letters, numbers, dots, underscores, hyphens)." >&2
+              exit 1
+            fi
+          elif [ "$CREATION_MODE" = "range" ]; then
+            if ! [[ "$START_NUMBER" =~ ^[0-9]+$ ]] || ! [[ "$END_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "Start and end numbers must be whole numbers." >&2
+              exit 1
+            fi
+            if [ "$START_NUMBER" -lt 1 ] || [ "$END_NUMBER" -lt "$START_NUMBER" ]; then
+              echo "Use a start number of at least 1 and an end number not smaller than the start." >&2
+              exit 1
+            fi
+            count=$((END_NUMBER - START_NUMBER + 1))
+            if [ "$count" -gt 200 ]; then
+              echo "Create at most 200 repositories in one run." >&2
+              exit 1
+            fi
+          else
+            echo "Unknown creation mode: $CREATION_MODE" >&2
+            exit 1
+          fi
+
+      - name: Create repositories, copy site, and configure deployment
+        id: create
         env:
           GH_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
-          REPOSITORY_NAME: ${{ inputs.repository_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CREATION_MODE: ${{ inputs.creation_mode }}
+          REPOSITORY_NAME: ${{ inputs.repository_name }}
+          START_NUMBER: ${{ inputs.start_number }}
+          END_NUMBER: ${{ inputs.end_number }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "Add DERIVATIVE_ADMIN_TOKEN to the main repository Actions secrets first." >&2
+          set -uo pipefail
+          owner="$GITHUB_REPOSITORY_OWNER"
+          created_file=/tmp/created-derivatives.txt
+          skipped_file=/tmp/skipped-derivatives.txt
+          failed_file=/tmp/failed-derivatives.txt
+          : > "$created_file"
+          : > "$skipped_file"
+          : > "$failed_file"
+
+          if [ "$CREATION_MODE" = "single" ]; then
+            names=("$REPOSITORY_NAME")
+          else
+            names=()
+            for ((number=START_NUMBER; number<=END_NUMBER; number++)); do
+              names+=("turkiye-yasam-$number")
+            done
+          fi
+
+          for name in "${names[@]}"; do
+            target="$owner/$name"
+            echo "::group::Processing $target"
+
+            if gh repo view "$target" >/dev/null 2>&1; then
+              echo "Already exists; leaving it untouched and skipping."
+              echo "$target" >> "$skipped_file"
+              echo "::endgroup::"
+              continue
+            fi
+
+            if ! gh repo create "$target" --public --description "Derivative site generated from GÜNCE"; then
+              echo "Repository creation failed: $target" >&2
+              echo "$target (repository creation)" >> "$failed_file"
+              echo "::endgroup::"
+              continue
+            fi
+
+            if ! gh secret set CLOUDFLARE_API_TOKEN --repo "$target" --body "$CLOUDFLARE_API_TOKEN" ||
+               ! gh secret set CLOUDFLARE_ACCOUNT_ID --repo "$target" --body "$CLOUDFLARE_ACCOUNT_ID"; then
+              echo "Could not configure Cloudflare secrets: $target" >&2
+              echo "$target (Cloudflare secrets)" >> "$failed_file"
+              echo "::endgroup::"
+              continue
+            fi
+
+            git remote remove derivative 2>/dev/null || true
+            git remote add derivative "https://x-access-token:$GH_TOKEN@github.com/$target.git"
+            if git push derivative HEAD:main; then
+              echo "$target" >> "$created_file"
+              echo "Created, seeded, and configured: $target"
+            else
+              echo "Initial code push failed: $target" >&2
+              echo "$target (initial code push)" >> "$failed_file"
+            fi
+            git remote remove derivative 2>/dev/null || true
+            echo "::endgroup::"
+          done
+
+          if [ -s "$created_file" ]; then
+            node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const registryPath = 'data/derivatives.json';
+          const repos = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+          if (!Array.isArray(repos)) throw new Error('data/derivatives.json must be a JSON array');
+          const created = fs.readFileSync('/tmp/created-derivatives.txt', 'utf8').trim().split('\n').filter(Boolean);
+          for (const repo of created) if (!repos.includes(repo)) repos.push(repo);
+          fs.writeFileSync(registryPath, JSON.stringify(repos, null, 2) + '\n');
+          NODE
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/derivatives.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Register newly created derivative repositories"
+              git push origin HEAD:main
+            fi
+          fi
+
+          echo "===== CREATION SUMMARY ====="
+          echo "Created successfully:"
+          cat "$created_file"
+          echo "Skipped because they already existed:"
+          cat "$skipped_file"
+          echo "Failed:"
+          cat "$failed_file"
+          if [ -s "$failed_file" ]; then
             exit 1
           fi
-          target="$GITHUB_REPOSITORY_OWNER/$REPOSITORY_NAME"
-          gh repo create "$target" --public --description "Derivative site generated from GÜNCE"
-          git clone --branch main --single-branch "https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY.git" /tmp/source
-          git -C /tmp/source remote add derivative "https://x-access-token:$GH_TOKEN@github.com/$target.git"
-          git -C /tmp/source push derivative HEAD:main
-          echo "$target" >> /tmp/new-derivative.txt
-      - name: Register derivative for automatic updates
-        env:
-          TARGET_FILE: data/derivatives.json
-        run: |
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const path = process.env.TARGET_FILE;
-          const repos = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const target = fs.readFileSync('/tmp/new-derivative.txt', 'utf8').trim();
-          if (!repos.includes(target)) repos.push(target);
-          fs.writeFileSync(path, JSON.stringify(repos, null, 2) + '\n');
-          NODE
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/derivatives.json
-          git commit -m "Register derivative repository"
-          git push
