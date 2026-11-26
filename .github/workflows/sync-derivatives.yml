@@ -16,14 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Sync main branch to all derivatives
-        env:
-          DERIVATIVE_ADMIN_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
+      - name: Read derivative repository list
+        id: list
         run: |
-          if [ -z "$DERIVATIVE_ADMIN_TOKEN" ]; then
-            echo "DERIVATIVE_ADMIN_TOKEN is not configured; skipping derivative sync."
-            exit 1
-          fi
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const repos = JSON.parse(fs.readFileSync('data/derivatives.json', 'utf8'));
@@ -34,7 +29,20 @@ jobs:
             }
           }
           fs.writeFileSync('/tmp/derivatives.txt', repos.join('\n'));
+          if (repos.length === 0) console.log('No derivative repositories registered yet.');
           NODE
+      - name: Sync main branch to all derivatives
+        env:
+          DERIVATIVE_ADMIN_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
+        run: |
+          if [ ! -s /tmp/derivatives.txt ]; then
+            echo "No derivatives to sync; skipping."
+            exit 0
+          fi
+          if [ -z "$DERIVATIVE_ADMIN_TOKEN" ]; then
+            echo "DERIVATIVE_ADMIN_TOKEN is not configured." >&2
+            exit 1
+          fi
           while IFS= read -r target; do
             [ -z "$target" ] && continue
             echo "Syncing $target"
