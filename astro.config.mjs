@@ -1,2 +1,8 @@
 import { defineConfig } from 'astro/config';
-export default defineConfig({ site: 'https://turkiye-yasam.pages.dev', output: 'static' });
+
+const site = process.env.SITE_URL || 'https://turkiye-yasam.pages.dev';
+
+export default defineConfig({
+  site,
+  output: 'static',
+});
