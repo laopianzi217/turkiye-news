@@ -328,13 +328,143 @@ function sourceIdForPha() {
   return 'press-haber-ajansi';
 }
 
+// MatrixQR sponsor feed: the sitemap identifies the current article set;
+// article metadata supplies the true publication date (not merely lastmod).
+const matrixQrSponsor = (Array.isArray(sourceConfig.sponsors) ? sourceConfig.sponsors : [])
+  .find((item) => item.id === 'matrixqr-blog' && item.enabled === true &&
+    item.permission_status === 'republishing_permitted_by_sponsor_agreement');
+let sponsorLatest = null;
+
+function metaContent(html, key) {
+  for (const tag of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const raw = tag[0];
+    if ((attribute(raw, 'property') || attribute(raw, 'name')).toLowerCase() === key.toLowerCase()) {
+      return attribute(raw, 'content');
+    }
+  }
+  return '';
+}
+
+function absoluteArticleAssets(html, pageUrl) {
+  return html.replace(/\b(href|src)=(["'])([^"']*)\2/gi, (whole, attr, quote, value) => {
+    const raw = value.trim();
+    if (!raw || /^(?:https?:|mailto:|tel:|#)/i.test(raw)) return whole;
+    try { return attr + '=' + quote + new URL(raw, pageUrl).toString() + quote; }
+    catch { return whole; }
+  });
+}
+
+if (matrixQrSponsor) {
+  try {
+    const sitemapUrl = new URL(matrixQrSponsor.sitemap_url);
+    if (sitemapUrl.protocol !== 'https:' || sitemapUrl.hostname !== 'blog.matrixqr.cc') {
+      throw new Error('MatrixQR sitemap must use the approved HTTPS blog host.');
+    }
+    const sitemapResponse = await fetch(sitemapUrl, {
+      headers: { 'user-agent': 'Gunce-News-Reader/1.0 (+https://turkiye-yasam.pages.dev)', accept: 'application/xml, text/xml' },
+      redirect: 'error',
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!sitemapResponse.ok) throw new Error('Sitemap HTTP ' + sitemapResponse.status);
+    const sitemapBytes = new Uint8Array(await sitemapResponse.arrayBuffer());
+    if (sitemapBytes.byteLength > maxFeedBytes) throw new Error('Sitemap exceeds the 1.5 MB limit.');
+    const sitemapXml = new TextDecoder('utf-8').decode(sitemapBytes);
+    const articleEntries = [...sitemapXml.matchAll(/<url\b[^>]*>([\s\S]*?)<\/url>/gi)]
+      .map((match) => {
+        const loc = cleanUrl(plainText(rawTag(match[1], ['loc'])));
+        const lastmod = plainText(rawTag(match[1], ['lastmod']));
+        if (!loc) return null;
+        const url = new URL(loc);
+        if (url.protocol !== 'https:' || url.hostname !== 'blog.matrixqr.cc' ||
+            !url.pathname.startsWith('/posts/') || /\/(?:page|privacy-policy)(?:\/|$)/i.test(url.pathname)) return null;
+        return { url: url.toString(), lastmod };
+      })
+      .filter(Boolean)
+      .slice(0, 100);
+
+    const candidates = [];
+    for (const entry of articleEntries) {
+      const response = await fetch(entry.url, {
+        headers: { 'user-agent': 'Gunce-News-Reader/1.0 (+https://turkiye-yasam.pages.dev)', accept: 'text/html' },
+        redirect: 'error',
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!response.ok) throw new Error('Article HTTP ' + response.status + ' for ' + entry.url);
+      const html = await response.text();
+      if (Buffer.byteLength(html, 'utf8') > maxFeedBytes) throw new Error('Article exceeds the 1.5 MB limit: ' + entry.url);
+
+      const title = plainText(metaContent(html, 'og:title') || html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || '');
+      const description = plainText(metaContent(html, 'og:description') || metaContent(html, 'description'));
+      const publishedRaw = metaContent(html, 'article:published_time') ||
+        html.match(/"datePublished"\s*:\s*"([^"]+)"/i)?.[1] || entry.lastmod;
+      const publishedAt = publishedRaw && !Number.isNaN(Date.parse(publishedRaw))
+        ? new Date(publishedRaw).toISOString() : null;
+      const publishedMs = publishedAt ? Date.parse(publishedAt) : 0;
+      if (!title || !publishedAt || publishedMs > now + 24 * 60 * 60 * 1000) continue;
+
+      const canonical = cleanUrl(html.match(/<link\b[^>]*rel=["']canonical["'][^>]*>/i)?.[0]
+        ? attribute(html.match(/<link\b[^>]*rel=["']canonical["'][^>]*>/i)[0], 'href')
+        : entry.url) || entry.url;
+      const imageRaw = metaContent(html, 'og:image');
+      const image = imageRaw ? cleanUrl(new URL(imageRaw, entry.url).toString()) : '';
+      const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1] || html;
+      let articleBody = main.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)?.[1] || main;
+      articleBody = articleBody
+        .replace(/<header\b[^>]*>[\s\S]*?<\/header>/i, '')
+        .replace(/<nav\b[^>]*>[\s\S]*?<\/nav>/i, '')
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+      articleBody = absoluteArticleAssets(articleBody, entry.url);
+      const contentHtml = safeHtml(articleBody);
+      if (!contentHtml) continue;
+
+      const digest = createHash('sha256').update('matrixqr-blog:' + canonical).digest('hex').slice(0, 20);
+      candidates.push({
+        id: 'matrixqr-blog:' + digest,
+        slug: 'matrixqr-blog-' + digest,
+        sourceId: 'matrixqr-blog',
+        contentType: 'sponsor_article',
+        sourceGuid: canonical,
+        title: title.slice(0, 240),
+        description: (description || plainText(articleBody).slice(0, 500) || title).slice(0, 500),
+        contentHtml,
+        image: image || null,
+        publishedAt,
+        category: validCategories.has('teknoloji') ? 'teknoloji' : 'yasam',
+        sourceName: matrixQrSponsor.name,
+        sourceOrganization: 'MatrixQR',
+        attribution: 'Sponsorlu içerik · ' + matrixQrSponsor.name,
+        url: canonical
+      });
+    }
+
+    candidates.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+    sponsorLatest = candidates[0] || null;
+    console.log('matrixqr-blog: sitemap articles ' + articleEntries.length +
+      '; selected latest ' + (sponsorLatest ? sponsorLatest.title : 'none') + '.');
+  } catch (error) {
+    // Keep the last successfully imported sponsor article if the sponsor site is temporarily unavailable.
+    console.error('matrixqr-blog: ' + error.message);
+    process.exitCode = 1;
+  }
+}
+
 const merged = new Map();
-const newlyCollectedIds = new Set(collected.map((item) => item.id));
-for (const item of [...collected, ...existing]) {
+const sponsorHistory = existing
+  .filter((item) => item?.sourceId === 'matrixqr-blog')
+  .sort((a, b) => Date.parse(b.publishedAt || 0) - Date.parse(a.publishedAt || 0))
+  .slice(0, 1);
+const sponsorItems = sponsorLatest ? [sponsorLatest] : sponsorHistory;
+const allItems = [
+  ...collected.filter((item) => item.sourceId !== 'matrixqr-blog'),
+  ...existing.filter((item) => item?.sourceId !== 'matrixqr-blog'),
+  ...sponsorItems
+];
+const newlyCollectedIds = new Set([...collected, ...sponsorItems].map((item) => item.id));
+for (const item of allItems) {
   if (!item?.id || !item?.title) continue;
   if (newlyCollectedIds.has(item.id)) {
     const date = item.publishedAt ? Date.parse(item.publishedAt) : now;
-    if (!Number.isFinite(date) || now - date > maxAge || date > now + 24 * 60 * 60 * 1000) continue;
+    if (!Number.isFinite(date) || (item.sourceId !== 'matrixqr-blog' && now - date > maxAge) || date > now + 24 * 60 * 60 * 1000) continue;
   }
   if (!merged.has(item.id)) merged.set(item.id, item);
 }
