@@ -210,16 +210,127 @@ for (const source of enabled) {
   }
 }
 
+
+// PHA's authenticated API provides archive pagination and date filtering.
+// The key is read only from the GitHub Actions environment and is never logged.
+const phaSource = enabled.find((source) => source.id === 'press-haber-ajansi');
+if (phaSource && process.env.PHA_API_KEY) {
+  try {
+    const sectorFilter = [
+      'moda-tekstil',
+      'kozmetik-kisisel-bakim',
+      'saglik',
+      'spor',
+      'gida-icecek',
+      'perakende',
+      'turizm',
+      'kultur-sanat'
+    ].join(',');
+    const priorPhaDates = existing
+      .filter((item) => item?.sourceId === 'press-haber-ajansi' && item.publishedAt)
+      .map((item) => Date.parse(item.publishedAt))
+      .filter(Number.isFinite);
+    const sinceMs = priorPhaDates.length
+      ? Math.max(...priorPhaDates)
+      : now - maxAge;
+    const since = new Date(sinceMs).toISOString();
+    let nextUrl = new URL('https://www.press.org.tr/api/v1/haberler');
+    nextUrl.searchParams.set('sektor', sectorFilter);
+    nextUrl.searchParams.set('since', since);
+    nextUrl.searchParams.set('adet', '100');
+    nextUrl.searchParams.set('sayfa', '1');
+
+    let pageCount = 0;
+    let apiAccepted = 0;
+    const apiRejected = { tooOld: 0, future: 0, blocked: 0, noContent: 0 };
+    while (nextUrl && pageCount < 5) {
+      if (nextUrl.protocol !== 'https:' || nextUrl.hostname !== 'www.press.org.tr' ||
+          !nextUrl.pathname.startsWith('/api/v1/haberler')) {
+        throw new Error('PHA API returned an unexpected pagination URL.');
+      }
+      const response = await fetch(nextUrl, {
+        headers: {
+          authorization: 'Bearer ' + process.env.PHA_API_KEY,
+          accept: 'application/json',
+          'user-agent': 'Gunce-News-Reader/1.0 (+https://turkiye-yasam.pages.dev)'
+        },
+        redirect: 'error',
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!response.ok) throw new Error('PHA API HTTP ' + response.status);
+      const responseText = await response.text();
+      if (Buffer.byteLength(responseText, 'utf8') > maxFeedBytes) throw new Error('PHA API response exceeds the 1.5 MB limit.');
+      const payload = JSON.parse(responseText);
+      if (!payload || !Array.isArray(payload.items)) throw new Error('PHA API response has no items array.');
+
+      for (const item of payload.items) {
+        const title = String(item.title || '').trim().slice(0, 240);
+        const guid = String(item.id || '').trim();
+        const summary = String(item.summary || '').replace(/\\s+/g, ' ').trim().slice(0, 500);
+        const contentHtml = safeHtml(String(item.content_html || ''));
+        const publishedRaw = String(item.date_published || '').trim();
+        const publishedAt = publishedRaw && !Number.isNaN(Date.parse(publishedRaw))
+          ? new Date(publishedRaw).toISOString()
+          : null;
+        const publishedMs = publishedAt ? Date.parse(publishedAt) : now;
+        if (now - publishedMs > maxAge) { apiRejected.tooOld++; continue; }
+        if (publishedMs > now + 24 * 60 * 60 * 1000) { apiRejected.future++; continue; }
+        if (BLOCKED.test(title + ' ' + summary)) { apiRejected.blocked++; continue; }
+        if (!title || !guid || (!contentHtml && !summary)) { apiRejected.noContent++; continue; }
+
+        const digest = createHash('sha256').update(sourceIdForPha() + ':' + guid).digest('hex').slice(0, 20);
+        const sectorNames = Array.isArray(item.sectors)
+          ? item.sectors.map((sector) => typeof sector === 'string' ? sector : (sector?.name || sector?.slug || '')).join(' ')
+          : '';
+        const category = categoryFor(sectorNames + ' ' + title + ' ' + summary);
+        const organization = String(item.organization || '').trim();
+        const imageUrl = cleanUrl(typeof item.image === 'string' ? item.image : '');
+        collected.push({
+          id: 'press-haber-ajansi:' + digest,
+          slug: 'press-haber-ajansi-' + digest,
+          sourceId: 'press-haber-ajansi',
+          sourceGuid: guid,
+          title,
+          description: summary || title,
+          contentHtml,
+          image: imageUrl || null,
+          publishedAt,
+          category: validCategories.has(category) ? category : 'yasam',
+          sourceName: phaSource.name,
+          sourceOrganization: organization,
+          attribution: organization ? 'Kaynak: ' + organization + ' · ' + phaSource.name : 'Kaynak: ' + phaSource.name,
+          url: null
+        });
+        apiAccepted++;
+      }
+
+      pageCount++;
+      const candidateNext = payload.next ? new URL(payload.next, nextUrl) : null;
+      nextUrl = candidateNext;
+    }
+    console.log('press-haber-ajansi API: pages ' + pageCount + '; accepted ' + apiAccepted + '; rejected ' + JSON.stringify(apiRejected) + '.');
+  } catch (error) {
+    console.error('press-haber-ajansi API: ' + error.message);
+    process.exitCode = 1;
+  }
+}
+
+function sourceIdForPha() {
+  return 'press-haber-ajansi';
+}
+
 const merged = new Map();
+const newlyCollectedIds = new Set(collected.map((item) => item.id));
 for (const item of [...collected, ...existing]) {
   if (!item?.id || !item?.title) continue;
-  const date = item.publishedAt ? Date.parse(item.publishedAt) : now;
-  if (!Number.isFinite(date) || now - date > maxAge || date > now + 24 * 60 * 60 * 1000) continue;
+  if (newlyCollectedIds.has(item.id)) {
+    const date = item.publishedAt ? Date.parse(item.publishedAt) : now;
+    if (!Number.isFinite(date) || now - date > maxAge || date > now + 24 * 60 * 60 * 1000) continue;
+  }
   if (!merged.has(item.id)) merged.set(item.id, item);
 }
 const result = [...merged.values()]
-  .sort((a, b) => Date.parse(b.publishedAt || 0) - Date.parse(a.publishedAt || 0))
-  .slice(0, 150);
+  .sort((a, b) => Date.parse(b.publishedAt || 0) - Date.parse(a.publishedAt || 0));
 
 if (JSON.stringify(result) !== JSON.stringify(existing)) {
   await writeFile(outputPath, JSON.stringify(result, null, 2) + '\n');
