@@ -1,0 +1,63 @@
+name: Create a public derivative site
+on:
+  workflow_dispatch:
+    inputs:
+      repository_name:
+        description: 'New repository name (for example: turkiye-yasam-2)'
+        required: true
+        type: string
+permissions:
+  contents: write
+jobs:
+  create:
+    if: github.repository == 'laopianzi217/turkiye-news'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Validate repository name
+        env:
+          REPOSITORY_NAME: ${{ inputs.repository_name }}
+        run: |
+          if ! [[ "$REPOSITORY_NAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+            echo "Use only letters, numbers, dots, underscores, and hyphens." >&2
+            exit 1
+          fi
+          if [ "$REPOSITORY_NAME" = "turkiye-news" ]; then
+            echo "The derivative cannot use the main repository name." >&2
+            exit 1
+          fi
+      - name: Create public repository and copy the current site
+        env:
+          GH_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
+          REPOSITORY_NAME: ${{ inputs.repository_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Add DERIVATIVE_ADMIN_TOKEN to the main repository Actions secrets first." >&2
+            exit 1
+          fi
+          target="$GITHUB_REPOSITORY_OWNER/$REPOSITORY_NAME"
+          gh repo create "$target" --public --description "Derivative site generated from GÜNCE"
+          git clone --branch main --single-branch "https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY.git" /tmp/source
+          git -C /tmp/source remote add derivative "https://x-access-token:$GH_TOKEN@github.com/$target.git"
+          git -C /tmp/source push derivative HEAD:main
+          echo "$target" >> /tmp/new-derivative.txt
+      - name: Register derivative for automatic updates
+        env:
+          TARGET_FILE: data/derivatives.json
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const path = process.env.TARGET_FILE;
+          const repos = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const target = fs.readFileSync('/tmp/new-derivative.txt', 'utf8').trim();
+          if (!repos.includes(target)) repos.push(target);
+          fs.writeFileSync(path, JSON.stringify(repos, null, 2) + '\n');
+          NODE
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/derivatives.json
+          git commit -m "Register derivative repository"
+          git push
