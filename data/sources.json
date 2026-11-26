@@ -104,7 +104,17 @@
         "cities"
       ],
       "attribution_required": true,
-      "notes": "Published terms permit free website/app republication with attribution. Live RSS endpoint and item structure passed the technical smoke test. Automatic import is limited to recent, non-sensitive lifestyle stories; GUID is used only for deduplication, never as an article URL."
+      "notes": "Published terms permit free website/app republication with attribution. Collects the publisher's openly available lifestyle-sector RSS feeds (fashion/textiles, cosmetics/personal care, health, sports, food/beverage, retail, tourism, culture/arts); feed items are deduplicated across sectors by GUID. GUID is used only for deduplication, never as an article URL.",
+      "feed_urls": [
+        "https://www.press.org.tr/ajans/rss.xml?sektor=moda-tekstil",
+        "https://www.press.org.tr/ajans/rss.xml?sektor=kozmetik-kisisel-bakim",
+        "https://www.press.org.tr/ajans/rss.xml?sektor=saglik",
+        "https://www.press.org.tr/ajans/rss.xml?sektor=spor",
+        "https://www.press.org.tr/ajans/rss.xml?sektor=gida-icecek",
+        "https://www.press.org.tr/ajans/rss.xml?sektor=perakende",
+        "https://www.press.org.tr/ajans/rss.xml?sektor=turizm",
+        "https://www.press.org.tr/ajans/rss.xml?sektor=kultur-sanat"
+      ]
     },
     {
       "id": "basin-bultenleri",
