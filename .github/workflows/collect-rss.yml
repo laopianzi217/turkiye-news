@@ -27,6 +27,8 @@ jobs:
         with:
           node-version: 22
       - name: Collect PHA lifestyle news
+        env:
+          PHA_API_KEY: ${{ secrets.PHA_API_KEY }}
         run: node scripts/collect-rss.mjs
       - name: Validate Basin RSS fields without publishing
         if: github.event_name == 'push'
