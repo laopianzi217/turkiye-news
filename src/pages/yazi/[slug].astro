@@ -19,7 +19,7 @@ const structuredData = {
   publisher: { '@type': 'Organization', name: 'GÜNCE', url: 'https://turkiye-yasam.pages.dev/' }
 };
 ---
-<BaseLayout title={article.title+' — Günce'} description={article.description} image={article.image} type="article" structuredData={structuredData}>
+<BaseLayout title={article.title+' — Günce'} description={article.description} image={article.image} type="article" structuredData={structuredData} noindex={article.demo === true}>
   <article class="wrap story-page">
     <a class="back-link" href={'/kategori/'+(category?.slug??'yasam')+'/'}>← {category?.name??'Yaşam'}</a>
     <header class="story-header">
