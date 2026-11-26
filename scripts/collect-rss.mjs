@@ -116,10 +116,12 @@ function categoryFor(text) {
     ['yeme-icme', /gastronomi|yemek|gida|yiyecek|icecek|restoran|kahve|mutfak|sef|tarif/],
     ['saglik', /saglik|wellness|beslenme|fitness|iyi yasam/],
     ['spor', /spor|futbol|basketbol|voleybol|tenis|atletizm/],
-    ['alisveris', /alisveris|perakende|magaza|marka|e-ticaret|tuketici/],
+    ['alisveris', /alisveris|perakende|magaza|marka|e-ticaret|tuketici|otomotiv|otomobil|arac|araba/],
     ['teknoloji', /teknoloji|yapay zeka|yazilim|dijital|mobil|uygulama/],
     ['seyahat', /turizm|seyahat|otel|havayolu|tatil|destinasyon/],
-    ['kultur-sanat', /kultur|sanat|sergi|muze|sinema|tiyatro|muzik/],
+    ['kultur-sanat', /kultur|sanat|sergi|muze|sinema|tiyatro|muzik|medya|eglence/],
+    ['yeme-icme', /tarim|ziraat|organik urun|hasat/],
+    ['yasam', /cevre|surdurulebilirlik|iklim|geri donusum|enerji tasarrufu/],
     ['turkiye', /yerel yonetim|belediye|sehir|ilce|valilik|kaymakamlik|il genel meclisi/]
   ];
   for (const [id, pattern] of rules) if (pattern.test(value)) return id;
@@ -224,7 +226,12 @@ if (phaSource && process.env.PHA_API_KEY) {
       'gida-icecek',
       'perakende',
       'turizm',
-      'kultur-sanat'
+      'kultur-sanat',
+      'teknoloji',
+      'otomotiv',
+      'tarim',
+      'medya-eglence',
+      'cevre-surdurulebilirlik'
     ].join(',');
     const priorPhaDates = existing
       .filter((item) => item?.sourceId === 'press-haber-ajansi' && item.publishedAt)
