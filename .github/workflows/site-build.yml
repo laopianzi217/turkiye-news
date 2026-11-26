@@ -4,7 +4,6 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # Manual runs deploy the latest committed content to Cloudflare Pages.
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,6 +14,9 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      CF_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || github.event.repository.name }}
+      SITE_URL: ${{ vars.SITE_URL || format('https://{0}.pages.dev', vars.CLOUDFLARE_PAGES_PROJECT || github.event.repository.name) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,11 +36,11 @@ jobs:
         run: |
           status=$(curl --silent --show-error --output /tmp/pages-project.json --write-out "%{http_code}" \
             --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/turkiye-yasam")
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CF_PAGES_PROJECT")
           if [ "$status" = "200" ]; then
             echo "Cloudflare Pages project already exists."
           elif [ "$status" = "404" ]; then
-            npx wrangler pages project create turkiye-yasam --production-branch main
+            npx wrangler pages project create "$CF_PAGES_PROJECT" --production-branch main
           else
             cat /tmp/pages-project.json
             echo "Could not verify Cloudflare Pages project (HTTP $status)." >&2
@@ -50,5 +52,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=turkiye-yasam --branch=main
+          command: pages deploy dist --project-name=${{ env.CF_PAGES_PROJECT }} --branch=main
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
