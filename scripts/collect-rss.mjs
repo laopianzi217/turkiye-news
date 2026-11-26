@@ -120,7 +120,7 @@ function categoryFor(text) {
     ['teknoloji', /teknoloji|yapay zeka|yazilim|dijital|mobil|uygulama/],
     ['seyahat', /turizm|seyahat|otel|havayolu|tatil|destinasyon/],
     ['kultur-sanat', /kultur|sanat|sergi|muze|sinema|tiyatro|muzik/],
-    ['turkiye', /yerel yonetim|belediye|sehir|ilce|turkiye/]
+    ['turkiye', /yerel yonetim|belediye|sehir|ilce|valilik|kaymakamlik|il genel meclisi/]
   ];
   for (const [id, pattern] of rules) if (pattern.test(value)) return id;
   return 'yasam';
