@@ -150,13 +150,15 @@ const enabled = sourceConfig.sources.filter((source) =>
   Array.isArray(source.allowed_fields) &&
   source.allowed_fields.includes('title') &&
   source.allowed_fields.includes('content_html') &&
-  typeof source.feed_url === 'string'
+  (typeof source.feed_url === 'string' || (Array.isArray(source.feed_urls) && source.feed_urls.length > 0))
 );
 
 const collected = [];
 for (const source of enabled) {
+  const feedUrls = Array.isArray(source.feed_urls) ? source.feed_urls : [source.feed_url];
+  for (const feedUrlValue of feedUrls) {
   try {
-    const feedUrl = new URL(source.feed_url);
+    const feedUrl = new URL(feedUrlValue);
     const hosts = allowedHosts[source.id] || [];
     if (feedUrl.protocol !== 'https:' || !hosts.includes(feedUrl.hostname)) throw new Error('Feed host is not on this source’s HTTPS allowlist.');
     const response = await fetch(feedUrl, {
@@ -200,8 +202,9 @@ for (const source of enabled) {
     }
     console.log(source.id + ': parsed ' + entries.length + ' entries; accepted ' + accepted + ' safe lifestyle stories.');
   } catch (error) {
-    console.error(source.id + ': ' + error.message);
+    console.error(source.id + ' (' + feedUrlValue + '): ' + error.message);
     process.exitCode = 1;
+  }
   }
 }
 
