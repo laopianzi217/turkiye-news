@@ -1,0 +1,69 @@
+name: Content integrity protection
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/data/news.json'
+      - 'data/content-protection.json'
+      - 'scripts/content-integrity-check.mjs'
+      - '.github/workflows/content-integrity.yml'
+  schedule:
+    - cron: '37 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: content-integrity
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify protected articles and content integrity
+        run: node scripts/content-integrity-check.mjs
+
+  notify-failure:
+    needs: check
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update content integrity alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue list --repo "$REPOSITORY" --state open --search "[自动监控] 内容完整性异常 in:title" --json number --jq '.[0].number' > issue_number.txt
+          ISSUE_NUMBER="$(cat issue_number.txt)"
+          BODY="内容完整性检查发现异常。系统不会自动删除或修改任何文章。请查看失败日志并人工核实。\n\n运行记录：$RUN_URL"
+          if [ -n "$ISSUE_NUMBER" ]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPOSITORY" --body "$BODY"
+          else
+            gh issue create --repo "$REPOSITORY" --title "[自动监控] 内容完整性异常" --body "$BODY"
+          fi
+
+  close-recovery-alert:
+    needs: check
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close content integrity alert after recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh issue list --repo "$REPOSITORY" --state open --search "[自动监控] 内容完整性异常 in:title" --json number --jq '.[].number' |
+          while read -r ISSUE_NUMBER; do
+            [ -z "$ISSUE_NUMBER" ] || gh issue close "$ISSUE_NUMBER" --repo "$REPOSITORY" --comment "内容完整性检查已恢复正常，自动关闭此告警。"
+          done
