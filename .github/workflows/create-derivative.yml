@@ -202,7 +202,19 @@ jobs:
           echo >> "$GITHUB_STEP_SUMMARY"
           echo "| GitHub repository | Cloudflare Pages project |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          while IFS=          GH_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
+          while IFS=$'\t' read -r target project_name; do
+            [ -n "$target" ] || continue
+            printf '| `%s` | `%s` |\n' "$target" "$project_name" >> "$GITHUB_STEP_SUMMARY"
+          done < "$candidates"
+          count=$(grep -c . "$candidates" || true)
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Validated candidates: **$count**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Dry Run completed. No GitHub repositories, Cloudflare Pages projects, secrets, or registry entries were created or changed."
+
+      - name: Create repositories, copy site, and configure deployment
+        if: ${{ inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -212,7 +224,6 @@ jobs:
           START_NUMBER: ${{ inputs.start_number }}
           END_NUMBER: ${{ inputs.end_number }}
         run: |
-          set -uo pipefail
           owner="$GITHUB_REPOSITORY_OWNER"
           created_file=/tmp/created-derivatives.tsv
           skipped_file=/tmp/skipped-derivatives.txt
