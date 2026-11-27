@@ -169,12 +169,22 @@ jobs:
             fi
           done < "$candidates"
 
-          cloudflare_projects=$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects?per_page=1000")
-          if ! echo "$cloudflare_projects" | jq -e '.success == true and (.result | type == "array")' >/dev/null; then
-            echo "Could not verify the Cloudflare Pages project inventory; refusing to create sites." >&2
-            echo "$cloudflare_projects" | jq -r '.errors[]?.message' >&2 || true
-            exit 1
-          fi
+          cloudflare_projects='{"success":true,"result":[]}'
+          page=1
+          while :; do
+            page_response=$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects?page=$page&per_page=100")
+            if ! echo "$page_response" | jq -e '.success == true and (.result | type == "array")' >/dev/null; then
+              echo "Could not verify the Cloudflare Pages project inventory; refusing to create sites." >&2
+              echo "$page_response" | jq -r '.errors[]?.message' >&2 || true
+              exit 1
+            fi
+            cloudflare_projects=$(jq -cn --argjson current "$cloudflare_projects" --argjson next "$page_response" '{success:true,result:($current.result + $next.result)}')
+            total_pages=$(echo "$page_response" | jq -r '.result_info.total_pages // 1')
+            if [ "$page" -ge "$total_pages" ]; then
+              break
+            fi
+            page=$((page + 1))
+          done
 
           while read -r target project_name; do
             registered_project=$(jq -r --arg repo "$target" '.[] | select((if type == "string" then . else .repository end) == $repo) | (if type == "string" then ($repo | split("/")[-1] | ascii_downcase) else .pages_project end)' data/derivatives.json | head -n 1)
