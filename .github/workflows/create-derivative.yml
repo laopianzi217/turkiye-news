@@ -35,6 +35,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          persist-credentials: false
 
       - name: Validate inputs and required secrets
         env:
@@ -115,17 +116,20 @@ jobs:
             echo "::group::Processing $target"
 
             if gh repo view "$target" >/dev/null 2>&1; then
-              echo "Already exists; leaving it untouched and skipping."
-              echo "$target" >> "$skipped_file"
-              echo "::endgroup::"
-              continue
-            fi
-
-            if ! gh repo create "$target" --public --description "Derivative site generated from GÜNCE"; then
-              echo "Repository creation failed: $target" >&2
-              echo "$target (repository creation)" >> "$failed_file"
-              echo "::endgroup::"
-              continue
+              echo "Repository already exists; checking whether it needs initial code."
+              if gh api "repos/$target/contents" >/dev/null 2>&1; then
+                echo "Repository already contains files; leaving it untouched and skipping."
+                echo "$target" >> "$skipped_file"
+                echo "::endgroup::"
+                continue
+              fi
+            else
+              if ! gh repo create "$target" --public --description "Derivative site generated from GÜNCE"; then
+                echo "Repository creation failed: $target" >&2
+                echo "$target (repository creation)" >> "$failed_file"
+                echo "::endgroup::"
+                continue
+              fi
             fi
 
             if ! gh secret set CLOUDFLARE_API_TOKEN --repo "$target" --body "$CLOUDFLARE_API_TOKEN" ||
@@ -164,6 +168,7 @@ jobs:
             git add data/derivatives.json
             if ! git diff --cached --quiet; then
               git commit -m "Register newly created derivative repositories"
+              git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
               git push origin HEAD:main
             fi
           fi
