@@ -12,7 +12,11 @@ on:
           - range
         default: single
       repository_name:
-        description: 'Single repository name, for example turkiye-yasam-2'
+        description: 'Custom GitHub repository name (single mode)'
+        required: false
+        type: string
+      pages_project_name:
+        description: 'Optional Cloudflare Pages project name; defaults to the repository name'
         required: false
         type: string
       start_number:
@@ -42,6 +46,7 @@ jobs:
         env:
           CREATION_MODE: ${{ inputs.creation_mode }}
           REPOSITORY_NAME: ${{ inputs.repository_name }}
+          PAGES_PROJECT_NAME: ${{ inputs.pages_project_name }}
           START_NUMBER: ${{ inputs.start_number }}
           END_NUMBER: ${{ inputs.end_number }}
           GH_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
@@ -55,15 +60,23 @@ jobs:
           fi
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID in the main repository Actions secrets." >&2
-            echo "Add both before creating derivative sites so their deployments can be configured automatically." >&2
             exit 1
           fi
           if [ "$CREATION_MODE" = "single" ]; then
             if ! [[ "$REPOSITORY_NAME" =~ ^[A-Za-z0-9._-]+$ ]] || [ "$REPOSITORY_NAME" = "turkiye-news" ]; then
-              echo "Enter a valid repository name (letters, numbers, dots, underscores, hyphens)." >&2
+              echo "Enter a valid GitHub repository name." >&2
+              exit 1
+            fi
+            project_name="${PAGES_PROJECT_NAME:-${REPOSITORY_NAME,,}}"
+            if ! [[ "$project_name" =~ ^[a-z0-9][a-z0-9-]{0,57}$ ]]; then
+              echo "Cloudflare Pages project names must be 1-58 lowercase letters, numbers, or hyphens, and start with a letter or number." >&2
               exit 1
             fi
           elif [ "$CREATION_MODE" = "range" ]; then
+            if [ -n "$PAGES_PROJECT_NAME" ]; then
+              echo "Custom Cloudflare Pages project name is only supported in single mode; range mode uses each repository name." >&2
+              exit 1
+            fi
             if ! [[ "$START_NUMBER" =~ ^[0-9]+$ ]] || ! [[ "$END_NUMBER" =~ ^[0-9]+$ ]]; then
               echo "Start and end numbers must be whole numbers." >&2
               exit 1
@@ -91,12 +104,13 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CREATION_MODE: ${{ inputs.creation_mode }}
           REPOSITORY_NAME: ${{ inputs.repository_name }}
+          PAGES_PROJECT_NAME: ${{ inputs.pages_project_name }}
           START_NUMBER: ${{ inputs.start_number }}
           END_NUMBER: ${{ inputs.end_number }}
         run: |
           set -uo pipefail
           owner="$GITHUB_REPOSITORY_OWNER"
-          created_file=/tmp/created-derivatives.txt
+          created_file=/tmp/created-derivatives.tsv
           skipped_file=/tmp/skipped-derivatives.txt
           failed_file=/tmp/failed-derivatives.txt
           : > "$created_file"
@@ -114,7 +128,8 @@ jobs:
 
           for name in "${names[@]}"; do
             target="$owner/$name"
-            echo "::group::Processing $target"
+            project_name="${PAGES_PROJECT_NAME:-${name,,}}"
+            echo "::group::Processing $target (Pages: $project_name)"
 
             if gh repo view "$target" >/dev/null 2>&1; then
               echo "Repository already exists; checking whether it needs initial code."
@@ -134,9 +149,10 @@ jobs:
             fi
 
             if ! gh secret set CLOUDFLARE_API_TOKEN --repo "$target" --body "$CLOUDFLARE_API_TOKEN" ||
-               ! gh secret set CLOUDFLARE_ACCOUNT_ID --repo "$target" --body "$CLOUDFLARE_ACCOUNT_ID"; then
-              echo "Could not configure Cloudflare secrets: $target" >&2
-              echo "$target (Cloudflare secrets)" >> "$failed_file"
+               ! gh secret set CLOUDFLARE_ACCOUNT_ID --repo "$target" --body "$CLOUDFLARE_ACCOUNT_ID" ||
+               ! gh variable set CLOUDFLARE_PAGES_PROJECT --repo "$target" --body "$project_name"; then
+              echo "Could not configure Cloudflare secrets or Pages project variable: $target" >&2
+              echo "$target (Cloudflare configuration)" >> "$failed_file"
               echo "::endgroup::"
               continue
             fi
@@ -144,8 +160,8 @@ jobs:
             git remote remove derivative 2>/dev/null || true
             git remote add derivative "https://x-access-token:$GH_TOKEN@github.com/$target.git"
             if git push derivative HEAD:main; then
-              echo "$target" >> "$created_file"
-              echo "Created, seeded, and configured: $target"
+              printf '%s\t%s\n' "$target" "$project_name" >> "$created_file"
+              echo "Created, seeded, and configured: $target (Pages: $project_name)"
             else
               echo "Initial code push failed: $target" >&2
               echo "$target (initial code push)" >> "$failed_file"
@@ -158,11 +174,19 @@ jobs:
             node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const registryPath = 'data/derivatives.json';
-          const repos = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
-          if (!Array.isArray(repos)) throw new Error('data/derivatives.json must be a JSON array');
-          const created = fs.readFileSync('/tmp/created-derivatives.txt', 'utf8').trim().split('\n').filter(Boolean);
-          for (const repo of created) if (!repos.includes(repo)) repos.push(repo);
-          fs.writeFileSync(registryPath, JSON.stringify(repos, null, 2) + '\n');
+          const entries = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+          if (!Array.isArray(entries)) throw new Error('data/derivatives.json must be a JSON array');
+          const byRepo = new Map();
+          for (const entry of entries) {
+            const repository = typeof entry === 'string' ? entry : entry.repository;
+            const pagesProject = typeof entry === 'string' ? repository.split('/').at(-1).toLowerCase() : entry.pages_project;
+            if (repository && pagesProject) byRepo.set(repository, { repository, pages_project: pagesProject });
+          }
+          for (const line of fs.readFileSync('/tmp/created-derivatives.tsv', 'utf8').trim().split('\n').filter(Boolean)) {
+            const [repository, pages_project] = line.split('\t');
+            byRepo.set(repository, { repository, pages_project });
+          }
+          fs.writeFileSync(registryPath, JSON.stringify([...byRepo.values()], null, 2) + '\n');
           NODE
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
