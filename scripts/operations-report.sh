@@ -49,6 +49,7 @@ check_workflow "主站构建与部署" "site-build.yml"
 check_workflow "衍生仓库同步" "sync-derivatives.yml"
 check_workflow "网站可用性巡检（每两天）" "site-health.yml"
 check_workflow "内容完整性检查（每日）" "content-integrity.yml"
+check_workflow "关键数据备份（每日）" "critical-data-backup.yml"
 
 derivatives_json="$(gh api "repos/$repo/contents/data/derivatives.json" --jq '.content' | tr -d '\n' | base64 -d)"
 derivative_count="$(jq 'length' <<< "$derivatives_json")"
