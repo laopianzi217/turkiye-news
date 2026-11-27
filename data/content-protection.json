@@ -1,0 +1,12 @@
+{
+  "protectedManualIds": [
+    "replikasaatblog:a97b18c57659022c4e79"
+  ],
+  "sponsors": [
+    {
+      "sourceId": "matrixqr-blog",
+      "minItems": 1,
+      "maxItems": 1
+    }
+  ]
+}
