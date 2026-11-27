@@ -173,7 +173,7 @@ jobs:
           page=1
           while :; do
             response_file=/tmp/cloudflare-pages-page.json
-            http_status=$(curl --silent --show-error -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects?page=$page&per_page=100")
+            http_status=$(curl --silent --show-error -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects?page=$page&per_page=50")
             page_response=$(cat "$response_file")
             if [ "$http_status" != "200" ]; then
               echo "Cloudflare Pages inventory request failed (HTTP $http_status); refusing to create sites." >&2
