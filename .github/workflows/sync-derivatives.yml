@@ -2,8 +2,6 @@ name: Sync derivative repositories
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '.github/workflows/sync-derivatives.yml'
   workflow_dispatch:
 permissions:
   contents: read
