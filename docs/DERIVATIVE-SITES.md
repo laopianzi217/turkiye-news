@@ -26,6 +26,15 @@
 
 批量编号模式仍可使用，项目名自动采用对应仓库名；批量模式不提供单独的 Pages 项目名。
 
+## Dry Run 创建预演
+
+运行 **Create public derivative sites** 时，`dry_run` 是一个布尔开关：
+
+- `true`：只执行名称与资源冲突预检查，并在 Actions Summary 中列出计划创建的 GitHub 仓库和 Cloudflare Pages 项目；不会创建仓库、项目、Secrets，不会修改 `data/derivatives.json`。
+- `false`：预检查通过后，按正常流程正式创建。默认值为 `false`，以兼容原有的直接创建操作；正式运行前请确认开关状态。
+
+建议批量创建或首次使用自定义命名时，先用 `dry_run=true` 预演；确认计划清单无误后，再用相同参数以 `dry_run=false` 正式运行。预演只验证运行当时的资源状态，正式创建前仍会重新执行预检查。
+
 ## 创建前自动检查
 
 每次运行创建工作流时，会先执行预检查，再创建或配置任何仓库：
