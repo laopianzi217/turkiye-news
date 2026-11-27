@@ -11,8 +11,7 @@ on:
     - cron: '*/30 * * * *'
   workflow_dispatch:
 permissions:
-  contents: write
-  deployments: write
+  contents: read
 concurrency:
   group: rss-collection-main
   cancel-in-progress: false
@@ -24,44 +23,35 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Collect PHA lifestyle news
+      - name: Collect PHA and permitted brand news
         env:
           PHA_API_KEY: ${{ secrets.PHA_API_KEY }}
         run: node scripts/collect-rss.mjs
       - name: Validate Basin RSS fields without publishing
         if: github.event_name == 'push'
         run: node scripts/test-basin-feed.mjs
-      - name: Commit collected PHA news
+      - name: Commit collected news
         id: commit
+        env:
+          DERIVATIVE_ADMIN_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
         run: |
           if git diff --quiet -- src/data/news.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No RSS changes to commit."
             exit 0
           fi
+          if [ -z "$DERIVATIVE_ADMIN_TOKEN" ]; then
+            echo "DERIVATIVE_ADMIN_TOKEN is required to trigger the main deployment and derivative sync workflows." >&2
+            exit 1
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/data/news.json
-          git commit -m "Update collected PHA news"
-          git push
+          git commit -m "Update collected lifestyle news"
+          git remote set-url origin "https://x-access-token:$DERIVATIVE_ADMIN_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git push origin HEAD:main
           echo "changed=true" >> "$GITHUB_OUTPUT"
-      - name: Install dependencies
-        if: steps.commit.outputs.changed == 'true'
-        run: npm install
-      - name: Check dependency security
-        if: steps.commit.outputs.changed == 'true'
-        run: npm audit --audit-level=high
-      - name: Build static site
-        if: steps.commit.outputs.changed == 'true'
-        run: npm run build
-      - name: Deploy to Cloudflare Pages
-        if: steps.commit.outputs.changed == 'true'
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=turkiye-yasam --branch=main
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
