@@ -26,11 +26,13 @@ jobs:
           const repos = JSON.parse(fs.readFileSync('data/derivatives.json', 'utf8'));
           if (!Array.isArray(repos)) throw new Error('data/derivatives.json must be a JSON array');
           for (const repo of repos) {
-            if (typeof repo !== 'string' || !/^[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+$/.test(repo)) {
+            const parts = typeof repo === 'string' ? repo.split('/') : [];
+            if (parts.length !== 2 || !parts.every(part => /^[A-Za-z0-9_.-]+$/.test(part))) {
               throw new Error(`Invalid derivative repository name: ${repo}`);
             }
           }
-          fs.writeFileSync('/tmp/derivatives.txt', repos.join('\\n') + (repos.length ? '\\n' : ''));
+          const newline = String.fromCharCode(10);
+          fs.writeFileSync('/tmp/derivatives.txt', repos.join(newline) + (repos.length ? newline : ''));
           if (repos.length === 0) console.log('No derivative repositories registered yet.');
           NODE
       - name: Sync main branch to all derivatives
