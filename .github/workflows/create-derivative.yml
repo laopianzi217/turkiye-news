@@ -169,41 +169,25 @@ jobs:
             fi
           done < "$candidates"
 
-          cloudflare_projects='{"success":true,"result":[]}'
-          page=1
-          while :; do
-            response_file=/tmp/cloudflare-pages-page.json
-            http_status=$(curl --silent --show-error -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects?page=$page&per_page=50")
-            page_response=$(cat "$response_file")
-            if [ "$http_status" != "200" ]; then
-              echo "Cloudflare Pages inventory request failed (HTTP $http_status); refusing to create sites." >&2
-              echo "Cloudflare API error details:" >&2
-              echo "$page_response" | jq -r '.errors[]? | "code: \(.code), message: \(.message)"' >&2 || cat "$response_file" >&2
-              exit 1
-            fi
-            if ! echo "$page_response" | jq -e '.success == true and (.result | type == "array")' >/dev/null; then
-              echo "Cloudflare returned an unexpected Pages inventory response; refusing to create sites." >&2
-              echo "$page_response" | jq -r '.errors[]? | "code: \(.code), message: \(.message)"' >&2 || cat "$response_file" >&2
-              exit 1
-            fi
-            cloudflare_projects=$(jq -cn --argjson current "$cloudflare_projects" --argjson next "$page_response" '{success:true,result:($current.result + $next.result)}')
-            total_pages=$(echo "$page_response" | jq -r '.result_info.total_pages // 1')
-            if [ "$page" -ge "$total_pages" ]; then
-              break
-            fi
-            page=$((page + 1))
-          done
-
           while read -r target project_name; do
             registered_project=$(jq -r --arg repo "$target" '.[] | select((if type == "string" then . else .repository end) == $repo) | (if type == "string" then ($repo | split("/")[-1] | ascii_downcase) else .pages_project end)' data/derivatives.json | head -n 1)
             if [ -n "$registered_project" ] && [ "${registered_project,,}" = "${project_name,,}" ]; then
               echo "Already registered mapping is allowed: $target -> $project_name"
               continue
             fi
-            if echo "$cloudflare_projects" | jq -e --arg project "${project_name,,}" 'any(.result[]?; (.name | ascii_downcase) == $project)' >/dev/null; then
+
+            response_file=/tmp/cloudflare-pages-project.json
+            http_status=$(curl --silent --show-error -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$project_name")
+            if [ "$http_status" = "200" ]; then
               echo "Cloudflare Pages project name is already in use: $project_name (target repository: $target)." >&2
               exit 1
+            elif [ "$http_status" != "404" ]; then
+              echo "Could not reliably check Cloudflare Pages project $project_name (HTTP $http_status); refusing to create sites." >&2
+              echo "Cloudflare API response:" >&2
+              cat "$response_file" >&2
+              exit 1
             fi
+            echo "Cloudflare Pages project name is available: $project_name"
           done < "$candidates"
 
           echo "Preflight passed: no repository or Pages project name collisions found."
