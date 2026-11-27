@@ -1,12 +1,46 @@
 [
-  "laopianzi217/turkiye-yasam-1",
-  "laopianzi217/turkiye-yasam-2",
-  "laopianzi217/turkiye-yasam-3",
-  "laopianzi217/turkiye-yasam-4",
-  "laopianzi217/turkiye-yasam-5",
-  "laopianzi217/turkiye-yasam-6",
-  "laopianzi217/turkiye-yasam-7",
-  "laopianzi217/turkiye-yasam-8",
-  "laopianzi217/turkiye-yasam-9",
-  "laopianzi217/turkiye-yasam-10"
+  {
+    "repository": "laopianzi217/turkiye-yasam-1",
+    "pages_project": "turkiye-yasam-1"
+  },
+  {
+    "repository": "laopianzi217/turkiye-yasam-2",
+    "pages_project": "turkiye-yasam-2"
+  },
+  {
+    "repository": "laopianzi217/turkiye-yasam-3",
+    "pages_project": "turkiye-yasam-3"
+  },
+  {
+    "repository": "laopianzi217/turkiye-yasam-4",
+    "pages_project": "turkiye-yasam-4"
+  },
+  {
+    "repository": "laopianzi217/turkiye-yasam-5",
+    "pages_project": "turkiye-yasam-5"
+  },
+  {
+    "repository": "laopianzi217/turkiye-yasam-6",
+    "pages_project": "turkiye-yasam-6"
+  },
+  {
+    "repository": "laopianzi217/turkiye-yasam-7",
+    "pages_project": "turkiye-yasam-7"
+  },
+  {
+    "repository": "laopianzi217/turkiye-yasam-8",
+    "pages_project": "turkiye-yasam-8"
+  },
+  {
+    "repository": "laopianzi217/turkiye-yasam-9",
+    "pages_project": "turkiye-yasam-9"
+  },
+  {
+    "repository": "laopianzi217/turkiye-yasam-10",
+    "pages_project": "turkiye-yasam-10"
+  },
+  {
+    "repository": "laopianzi217/fashiongundem",
+    "pages_project": "fashiongundem"
+  }
 ]
