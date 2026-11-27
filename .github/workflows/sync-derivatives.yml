@@ -1,13 +1,18 @@
 name: Sync derivative repositories
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
+  issues: write
+
 concurrency:
   group: derivative-sync-main
   cancel-in-progress: false
+
 jobs:
   sync:
     if: github.repository == 'laopianzi217/turkiye-news'
@@ -31,14 +36,14 @@ jobs:
               throw new Error(`Invalid derivative repository name: ${repo}`);
             }
           }
-          const newline = String.fromCharCode(10);
-          fs.writeFileSync('/tmp/derivatives.txt', repos.join(newline) + (repos.length ? newline : ''));
+          fs.writeFileSync('/tmp/derivatives.txt', repos.join('\n') + (repos.length ? '\n' : ''));
           if (repos.length === 0) console.log('No derivative repositories registered yet.');
           NODE
       - name: Sync main branch to all derivatives
         env:
           DERIVATIVE_ADMIN_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
         run: |
+          set -euo pipefail
           if [ ! -s /tmp/derivatives.txt ]; then
             echo "No derivatives to sync; skipping."
             exit 0
@@ -53,4 +58,39 @@ jobs:
             git remote remove derivative 2>/dev/null || true
             git remote add derivative "https://x-access-token:$DERIVATIVE_ADMIN_TOKEN@github.com/$target.git"
             git push derivative HEAD:main --force
+            git remote remove derivative
           done < /tmp/derivatives.txt
+
+  notify-failure:
+    if: always() && needs.sync.result == 'failure' && github.repository == 'laopianzi217/turkiye-news'
+    needs: [sync]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open or update sync failure alert
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="[自动监控] 衍生仓库同步失败"
+          body="主仓库衍生仓库同步工作流失败。请打开本次 Actions 运行记录，检查失败的仓库和错误日志：$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          issue=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+
+  close-recovery-alert:
+    if: always() && needs.sync.result == 'success' && github.repository == 'laopianzi217/turkiye-news'
+    needs: [sync]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close sync failure alert after recovery
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="[自动监控] 衍生仓库同步失败"
+          issue=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "最新一次衍生仓库同步已成功，自动关闭此告警。"
+            gh issue close "$issue"
+          fi
