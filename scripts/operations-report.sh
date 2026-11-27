@@ -65,6 +65,7 @@ while IFS= read -r entry; do
   derivative_repo="$(jq -r '.repository' <<< "$entry")"
   pages_project="$(jq -r '.pages_project' <<< "$entry")"
   endpoint="https://api.github.com/repos/$derivative_repo/actions/workflows/site-build.yml/runs"
+  run_url=""
   if response="$(curl --silent --show-error --fail --max-time 20 \
       --header 'Accept: application/vnd.github+json' \
       --header 'X-GitHub-Api-Version: 2022-11-28' \
@@ -98,8 +99,13 @@ while IFS= read -r entry; do
     created="—"
     title="—"
   fi
+  if [ -n "$run_url" ]; then
+    title_cell="[$title]($run_url)"
+  else
+    title_cell="$title"
+  fi
   printf '| %s | [打开网站](https://%s.pages.dev) | %s | %s | %s |\n' \
-    "$derivative_repo" "$pages_project" "$title" "$result" "$created" >> "$summary"
+    "$derivative_repo" "$pages_project" "$title_cell" "$result" "$created" >> "$summary"
 done < <(jq -c '.[] | if type == "string" then {repository: ., pages_project: (split("/")[-1] | ascii_downcase)} else {repository: .repository, pages_project: (.pages_project // (.repository | split("/")[-1] | ascii_downcase))} end' <<< "$derivatives_json")
 
 {
