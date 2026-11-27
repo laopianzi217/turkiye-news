@@ -78,6 +78,7 @@ while IFS= read -r entry; do
       status="$(jq -r '.workflow_runs[0].status // "unknown"' <<< "$response")"
       conclusion="$(jq -r '.workflow_runs[0].conclusion // empty' <<< "$response")"
       created="$(jq -r '.workflow_runs[0].created_at // "—"' <<< "$response")"
+      run_url="$(jq -r '.workflow_runs[0].html_url // ""' <<< "$response")"
       title="$(jq -r '.workflow_runs[0].display_title // "—"' <<< "$response" | tr '|' '/')"
       if [ "$status" = "completed" ]; then
         case "$conclusion" in
