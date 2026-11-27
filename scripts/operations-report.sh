@@ -114,7 +114,7 @@ done < <(jq -c '.[] | if type == "string" then {repository: ., pages_project: (s
   echo
   echo "- 时间按 GitHub Actions 返回的 UTC 时间记录。"
   echo "- “最近一次运行”表示对应工作流最近一次针对 main 分支的运行，不代表过去一段时间内每次运行都成功。"
-  echo "- 衍生仓库的运行记录通过 GitHub 公共 API 读取；每日10个查询，使用 GitHub Actions 公共仓库信息，不需要新增密钥。"
+  echo "- 衍生仓库的运行记录通过 GitHub 公共 API 读取；每次生成报告最多查询10个衍生仓库的公开运行记录，不需要新增密钥。"
   echo "- 如出现失败，请打开对应运行记录查看具体步骤和错误日志。"
 } >> "$summary"
 
