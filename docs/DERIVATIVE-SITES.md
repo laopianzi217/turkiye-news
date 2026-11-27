@@ -7,6 +7,7 @@
 - 衍生仓库列表：`data/derivatives.json`
 - 主仓库更新后，`.github/workflows/sync-derivatives.yml` 将 `main` 分支同步到登记的衍生仓库。
 - 每个衍生仓库使用自己的仓库名作为 Cloudflare Pages 项目名，由 `.github/workflows/site-build.yml` 独立构建和部署。
+- 同步名单中的每一行都会处理，包括文件末尾最后一项；修改同步工作流本身时，需通过其他主仓库提交触发一次同步。
 
 ## 当前衍生站点
 
