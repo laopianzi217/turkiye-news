@@ -276,8 +276,16 @@ jobs:
               exit 1
             fi
 
-            if [ -z "$registered_project" ] && gh api "repos/$target" >/dev/null 2>&1; then
+            repo_status=$(curl --silent --show-error -o /tmp/github-repo-check.json -w '%{http_code}' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$target")
+            if [ "$repo_status" = "200" ] && [ -z "$registered_project" ]; then
               echo "GitHub repository already exists but is not registered: $target. Choose another name or reconcile it manually." >&2
+              exit 1
+            elif [ "$repo_status" != "200" ] && [ "$repo_status" != "404" ]; then
+              echo "Could not reliably check GitHub repository name $target (HTTP $repo_status)." >&2
+              cat /tmp/github-repo-check.json >&2
               exit 1
             fi
           done < "$candidates"
