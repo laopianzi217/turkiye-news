@@ -74,6 +74,7 @@ while IFS= read -r entry; do
       result="⚪ 尚无记录"
       created="—"
       title="—"
+      run_url=""
     else
       status="$(jq -r '.workflow_runs[0].status // "unknown"' <<< "$response")"
       conclusion="$(jq -r '.workflow_runs[0].conclusion // empty' <<< "$response")"
