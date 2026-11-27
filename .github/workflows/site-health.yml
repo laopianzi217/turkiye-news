@@ -1,26 +1,35 @@
 name: Website health monitor
+
 on:
   push:
     branches: [main]
     paths:
       - 'scripts/health-check.mjs'
+      - 'data/derivatives.json'
       - '.github/workflows/site-health.yml'
   schedule:
     - cron: '17 */6 * * *'
   workflow_dispatch:
+
 permissions:
   contents: read
   issues: write
+
+concurrency:
+  group: website-health-monitor
+  cancel-in-progress: false
+
 jobs:
   health-check:
     if: github.repository == 'laopianzi217/turkiye-news'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check the main site and 10 derivative sites
+      - name: Check the main site and all registered derivative sites
         id: health
         continue-on-error: true
         run: node scripts/health-check.mjs
@@ -44,7 +53,7 @@ jobs:
           title="[自动监控] 网站可用性异常"
           issue=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
           if [ -n "$issue" ]; then
-            gh issue comment "$issue" --body "本次巡检显示全部 11 个网站均已恢复正常。自动关闭此告警。"
+            gh issue comment "$issue" --body "本次巡检显示正式主站及全部登记的衍生站均已恢复正常。自动关闭此告警。"
             gh issue close "$issue"
           else
             echo "No open website availability alert."
