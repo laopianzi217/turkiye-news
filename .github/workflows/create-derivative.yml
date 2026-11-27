@@ -224,6 +224,7 @@ jobs:
           START_NUMBER: ${{ inputs.start_number }}
           END_NUMBER: ${{ inputs.end_number }}
         run: |
+          set -uo pipefail
           owner="$GITHUB_REPOSITORY_OWNER"
           created_file=/tmp/created-derivatives.tsv
           skipped_file=/tmp/skipped-derivatives.txt
