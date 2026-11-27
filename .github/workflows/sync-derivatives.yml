@@ -26,11 +26,11 @@ jobs:
           const repos = JSON.parse(fs.readFileSync('data/derivatives.json', 'utf8'));
           if (!Array.isArray(repos)) throw new Error('data/derivatives.json must be a JSON array');
           for (const repo of repos) {
-            if (typeof repo !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) {
+            if (typeof repo !== 'string' || !/^[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+$/.test(repo)) {
               throw new Error(`Invalid derivative repository name: ${repo}`);
             }
           }
-          fs.writeFileSync('/tmp/derivatives.txt', repos.join('\n'));
+          fs.writeFileSync('/tmp/derivatives.txt', repos.join('\\n') + (repos.length ? '\\n' : ''));
           if (repos.length === 0) console.log('No derivative repositories registered yet.');
           NODE
       - name: Sync main branch to all derivatives
@@ -45,7 +45,7 @@ jobs:
             echo "DERIVATIVE_ADMIN_TOKEN is not configured." >&2
             exit 1
           fi
-          while IFS= read -r target; do
+          while IFS= read -r target || [ -n "$target" ]; do
             [ -z "$target" ] && continue
             echo "Syncing $target"
             git remote remove derivative 2>/dev/null || true
