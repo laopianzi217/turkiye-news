@@ -172,10 +172,18 @@ jobs:
           cloudflare_projects='{"success":true,"result":[]}'
           page=1
           while :; do
-            page_response=$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects?page=$page&per_page=100")
+            response_file=/tmp/cloudflare-pages-page.json
+            http_status=$(curl --silent --show-error -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects?page=$page&per_page=100")
+            page_response=$(cat "$response_file")
+            if [ "$http_status" != "200" ]; then
+              echo "Cloudflare Pages inventory request failed (HTTP $http_status); refusing to create sites." >&2
+              echo "Cloudflare API error details:" >&2
+              echo "$page_response" | jq -r '.errors[]? | "code: \(.code), message: \(.message)"' >&2 || cat "$response_file" >&2
+              exit 1
+            fi
             if ! echo "$page_response" | jq -e '.success == true and (.result | type == "array")' >/dev/null; then
-              echo "Could not verify the Cloudflare Pages project inventory; refusing to create sites." >&2
-              echo "$page_response" | jq -r '.errors[]?.message' >&2 || true
+              echo "Cloudflare returned an unexpected Pages inventory response; refusing to create sites." >&2
+              echo "$page_response" | jq -r '.errors[]? | "code: \(.code), message: \(.message)"' >&2 || cat "$response_file" >&2
               exit 1
             fi
             cloudflare_projects=$(jq -cn --argjson current "$cloudflare_projects" --argjson next "$page_response" '{success:true,result:($current.result + $next.result)}')
