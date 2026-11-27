@@ -80,6 +80,8 @@ jobs:
                 });
               }
               core.info('Deployment succeeded; any matching alert was closed.');
+            } else if (process.env.JOB_STATUS === 'cancelled' || process.env.JOB_STATUS === 'skipped') {
+              core.info('Deployment was cancelled or skipped; no failure alert will be created.');
             } else {
               const body = [
                 '网站构建或 Cloudflare Pages 部署未成功。',
