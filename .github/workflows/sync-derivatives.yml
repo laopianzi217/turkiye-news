@@ -22,8 +22,9 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          const repos = JSON.parse(fs.readFileSync('data/derivatives.json', 'utf8'));
-          if (!Array.isArray(repos)) throw new Error('data/derivatives.json must be a JSON array');
+          const entries = JSON.parse(fs.readFileSync('data/derivatives.json', 'utf8'));
+          if (!Array.isArray(entries)) throw new Error('data/derivatives.json must be a JSON array');
+          const repos = entries.map(entry => typeof entry === 'string' ? entry : entry.repository);
           for (const repo of repos) {
             const parts = typeof repo === 'string' ? repo.split('/') : [];
             if (parts.length !== 2 || !parts.every(part => /^[A-Za-z0-9_.-]+$/.test(part))) {
