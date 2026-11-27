@@ -1,0 +1,49 @@
+name: Website health monitor
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  health-check:
+    if: github.repository == 'laopianzi217/turkiye-news'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check the main site and 10 derivative sites
+        id: health
+        continue-on-error: true
+        run: node scripts/health-check.mjs
+      - name: Open or update an alert when a site is unavailable
+        if: always() && steps.health.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="[自动监控] 网站可用性异常"
+          issue=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body-file health-report.md
+          else
+            gh issue create --title "$title" --body-file health-report.md
+          fi
+      - name: Close the alert when all sites recover
+        if: always() && steps.health.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="[自动监控] 网站可用性异常"
+          issue=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "本次巡检显示全部 11 个网站均已恢复正常。自动关闭此告警。"
+            gh issue close "$issue"
+          else
+            echo "No open website availability alert."
+          fi
+      - name: Mark the monitor run as failed if any site is unavailable
+        if: always() && steps.health.outcome == 'failure'
+        run: exit 1
