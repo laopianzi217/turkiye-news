@@ -8,7 +8,7 @@ on:
       - 'data/derivatives.json'
       - '.github/workflows/site-health.yml'
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '17 0 */2 * *'
   workflow_dispatch:
 
 permissions:
