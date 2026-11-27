@@ -7,6 +7,8 @@ on:
       - 'data/sources.json'
       - 'scripts/collect-rss.mjs'
       - 'scripts/test-basin-feed.mjs'
+      - 'scripts/content-integrity-check.mjs'
+      - 'data/content-protection.json'
       - '.github/workflows/collect-rss.yml'
   schedule:
     - cron: '*/30 * * * *'
@@ -36,6 +38,8 @@ jobs:
         env:
           PHA_API_KEY: ${{ secrets.PHA_API_KEY }}
         run: node scripts/collect-rss.mjs
+      - name: Verify protected articles and content integrity without modifying data
+        run: node scripts/content-integrity-check.mjs
       - name: Validate Basin RSS fields without publishing
         if: github.event_name == 'push'
         run: node scripts/test-basin-feed.mjs
