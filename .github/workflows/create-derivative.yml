@@ -268,7 +268,7 @@ jobs:
 
             other_repo=$(jq -r --arg project "${project_name,,}" '
               .[] | select(
-                (if type == "string" then ($ | split("/")[-1] | ascii_downcase) else (.pages_project | ascii_downcase) end) == $project
+                (if type == "string" then (. | split("/")[-1] | ascii_downcase) else (.pages_project | ascii_downcase) end) == $project
               ) | (if type == "string" then . else .repository end)
             ' data/derivatives.json | grep -Fvx "$target" | head -n 1 || true)
             if [ -n "$other_repo" ]; then
