@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: critical-data-backup
@@ -52,3 +53,39 @@ jobs:
             critical-data-backup.sha256
           if-no-files-found: error
           retention-days: 90
+
+  notify-failure:
+    if: always() && needs.backup.result == 'failure' && github.repository == 'laopianzi217/turkiye-news'
+    needs: [backup]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open or update backup failure alert
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="[自动监控] 关键数据备份失败"
+          body="关键数据备份工作流运行失败。请检查本次 Actions 运行记录和日志：$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          issue=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+
+  close-recovery-alert:
+    if: always() && needs.backup.result == 'success' && github.repository == 'laopianzi217/turkiye-news'
+    needs: [backup]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close backup failure alert after recovery
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="[自动监控] 关键数据备份失败"
+          issue=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "最新一次关键数据备份已成功，自动关闭此告警。"
+            gh issue close "$issue"
+          else
+            echo "No open backup failure alert."
+          fi
