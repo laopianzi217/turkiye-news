@@ -1,6 +1,11 @@
 name: Unified operations report
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/operations-report.sh'
+      - '.github/workflows/operations-report.yml'
   schedule:
     - cron: '17 4 * * *'
   workflow_dispatch:
