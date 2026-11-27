@@ -19,6 +19,11 @@ on:
         description: 'Optional Cloudflare Pages project name; defaults to the repository name'
         required: false
         type: string
+      dry_run:
+        description: 'When true, only preview and validate; do not create repositories or Pages projects'
+        required: true
+        type: boolean
+        default: false
       start_number:
         description: 'First number for range mode, for example 30'
         required: false
@@ -96,6 +101,7 @@ jobs:
           fi
 
       - name: Preflight repository and Cloudflare project name collisions
+        id: preflight
         shell: bash
         env:
           CREATION_MODE: ${{ inputs.creation_mode }}
@@ -186,7 +192,137 @@ jobs:
           echo "Validated candidates:"
           cat "$candidates"
 
+      - name: Dry Run summary (no resources will be created)
+        if: ${{ inputs.dry_run == true }}
+        run: |
+          set -euo pipefail
+          candidates=/tmp/derivative-preflight.tsv
+          echo "## Dry Run: no resources were created" >> "$GITHUB_STEP_SUMMARY"
+          echo "The preflight checks passed. Planned repository and Cloudflare Pages mappings:" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "| GitHub repository | Cloudflare Pages project |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          while IFS=          GH_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CREATION_MODE: ${{ inputs.creation_mode }}
+          REPOSITORY_NAME: ${{ inputs.repository_name }}
+          PAGES_PROJECT_NAME: ${{ inputs.pages_project_name }}
+          START_NUMBER: ${{ inputs.start_number }}
+          END_NUMBER: ${{ inputs.end_number }}
+        run: |
+          set -uo pipefail
+          owner="$GITHUB_REPOSITORY_OWNER"
+          created_file=/tmp/created-derivatives.tsv
+          skipped_file=/tmp/skipped-derivatives.txt
+          failed_file=/tmp/failed-derivatives.txt
+          : > "$created_file"
+          : > "$skipped_file"
+          : > "$failed_file"
+
+          if [ "$CREATION_MODE" = "single" ]; then
+            names=("$REPOSITORY_NAME")
+          else
+            names=()
+            for ((number=START_NUMBER; number<=END_NUMBER; number++)); do
+              names+=("turkiye-yasam-$number")
+            done
+          fi
+
+          for name in "${names[@]}"; do
+            target="$owner/$name"
+            project_name="${PAGES_PROJECT_NAME:-${name,,}}"
+            echo "::group::Processing $target (Pages: $project_name)"
+
+            if gh repo view "$target" >/dev/null 2>&1; then
+              echo "Repository already exists; checking whether it needs initial code."
+              if gh api "repos/$target/contents" >/dev/null 2>&1; then
+                echo "Repository already contains files; leaving it untouched and skipping."
+                echo "$target" >> "$skipped_file"
+                echo "::endgroup::"
+                continue
+              fi
+            else
+              if ! gh repo create "$target" --public --description "Derivative site generated from GÜNCE"; then
+                echo "Repository creation failed: $target" >&2
+                echo "$target (repository creation)" >> "$failed_file"
+                echo "::endgroup::"
+                continue
+              fi
+            fi
+
+            if ! gh secret set CLOUDFLARE_API_TOKEN --repo "$target" --body "$CLOUDFLARE_API_TOKEN" ||
+               ! gh secret set CLOUDFLARE_ACCOUNT_ID --repo "$target" --body "$CLOUDFLARE_ACCOUNT_ID" ||
+               ! gh variable set CLOUDFLARE_PAGES_PROJECT --repo "$target" --body "$project_name"; then
+              echo "Could not configure Cloudflare secrets or Pages project variable: $target" >&2
+              echo "$target (Cloudflare configuration)" >> "$failed_file"
+              echo "::endgroup::"
+              continue
+            fi
+
+            git remote remove derivative 2>/dev/null || true
+            git remote add derivative "https://x-access-token:$GH_TOKEN@github.com/$target.git"
+            if git push derivative HEAD:main; then
+              printf '%s\t%s\n' "$target" "$project_name" >> "$created_file"
+              echo "Created, seeded, and configured: $target (Pages: $project_name)"
+            else
+              echo "Initial code push failed: $target" >&2
+              echo "$target (initial code push)" >> "$failed_file"
+            fi
+            git remote remove derivative 2>/dev/null || true
+            echo "::endgroup::"
+          done
+
+          if [ -s "$created_file" ]; then
+            node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const registryPath = 'data/derivatives.json';
+          const entries = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+          if (!Array.isArray(entries)) throw new Error('data/derivatives.json must be a JSON array');
+          const byRepo = new Map();
+          for (const entry of entries) {
+            const repository = typeof entry === 'string' ? entry : entry.repository;
+            const pagesProject = typeof entry === 'string' ? repository.split('/').at(-1).toLowerCase() : entry.pages_project;
+            if (repository && pagesProject) byRepo.set(repository, { repository, pages_project: pagesProject });
+          }
+          for (const line of fs.readFileSync('/tmp/created-derivatives.tsv', 'utf8').trim().split('\n').filter(Boolean)) {
+            const [repository, pages_project] = line.split('\t');
+            byRepo.set(repository, { repository, pages_project });
+          }
+          fs.writeFileSync(registryPath, JSON.stringify([...byRepo.values()], null, 2) + '\n');
+          NODE
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/derivatives.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Register newly created derivative repositories"
+              git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+              git push origin HEAD:main
+            fi
+          fi
+
+          echo "===== CREATION SUMMARY ====="
+          echo "Created successfully:"
+          cat "$created_file"
+          echo "Skipped because they already existed:"
+          cat "$skipped_file"
+          echo "Failed:"
+          cat "$failed_file"
+          if [ -s "$failed_file" ]; then
+            exit 1
+          fi
+\\t' read -r target project_name; do
+            [ -n "$target" ] || continue
+            printf '| `%s` | `%s` |\\n' "$target" "$project_name" >> "$GITHUB_STEP_SUMMARY"
+          done < "$candidates"
+          count=$(grep -c . "$candidates" || true)
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Validated candidates: **$count**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Dry Run completed. No GitHub repositories, Cloudflare Pages projects, secrets, or registry entries were created or changed."
+
       - name: Create repositories, copy site, and configure deployment
+        if: ${{ inputs.dry_run != true }}
         env:
           GH_TOKEN: ${{ secrets.DERIVATIVE_ADMIN_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
