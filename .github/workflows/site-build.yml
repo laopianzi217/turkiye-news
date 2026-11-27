@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   deployments: write
+  issues: write
 concurrency:
   group: site-build-${{ github.ref }}
   cancel-in-progress: true
@@ -54,3 +55,49 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=${{ env.CF_PAGES_PROJECT }} --branch=main
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+      - name: Report deployment failure or recovery
+        if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+          PAGES_PROJECT: ${{ env.CF_PAGES_PROJECT }}
+        with:
+          script: |
+            const title = '[自动监控] 网站构建或部署失败';
+            const { owner, repo } = context.repo;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', per_page: 100
+            });
+            const existing = issues.find(issue => !issue.pull_request && issue.title === title);
+            if (process.env.JOB_STATUS === 'success') {
+              if (existing) {
+                await github.rest.issues.update({
+                  owner, repo, issue_number: existing.number, state: 'closed',
+                  state_reason: 'completed',
+                  body: existing.body + '\n\n恢复确认：' + new Date().toISOString() +
+                    '\n最近一次部署运行：' + context.serverUrl + '/' + owner + '/' + repo +
+                    '/actions/runs/' + context.runId
+                });
+              }
+              core.info('Deployment succeeded; any matching alert was closed.');
+            } else {
+              const body = [
+                '网站构建或 Cloudflare Pages 部署未成功。',
+                '',
+                '- 仓库：' + owner + '/' + repo,
+                '- Pages 项目：' + process.env.PAGES_PROJECT,
+                '- 工作流运行：' + context.serverUrl + '/' + owner + '/' + repo + '/actions/runs/' + context.runId,
+                '- 提交：' + context.sha,
+                '- 时间：' + new Date().toISOString(),
+                '',
+                '请打开运行记录查看失败步骤。后续部署成功后，此 Issue 会自动关闭。'
+              ].join('\n');
+              if (existing) {
+                await github.rest.issues.update({
+                  owner, repo, issue_number: existing.number, body
+                });
+              } else {
+                await github.rest.issues.create({ owner, repo, title, body });
+              }
+              core.warning('Deployment failure alert created or updated.');
+            }
